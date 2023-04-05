@@ -90,7 +90,11 @@ void build_partitions(ClassedPoint** first_points, int* partition_lengths) {
 	}
 }
 
-void update_centers(int iter) {
+double STOPPING_VARIANCE = 0.1;
+bool CONVERGED = false;
+
+void update_centers() {
+	double max_var = numeric_limits<double>::min();
 	for (int i = 0; i < (int)centroids.size(); ++i) {
 		Point point_sum = {};
 		point_sum.coords.resize(POINT_DIMENSION);
@@ -104,10 +108,33 @@ void update_centers(int iter) {
 			}
 			sum_of_lengths += centroids[i].partition_lengths[j];
 		}
+		double dist = distance(centroids[i].p, point_sum);
+		double point_sum_square_norm = 0;
 		for (int j = 0; j < POINT_DIMENSION; ++j) {
-			centroids[i].p.coords[j] = point_sum.coords[j] / sum_of_lengths;
+			point_sum.coords[j]  = point_sum.coords[j] / sum_of_lengths; // new centroid
+			point_sum_square_norm += (point_sum.coords[j] * point_sum.coords[j]);
+			centroids[i].p.coords[j] = point_sum.coords[j];
 		}
+		double variance = dist / point_sum_square_norm;
+		if (variance > max_var) {
+			max_var = variance;
+		}
+		//centroids[i].p.coords[j] = point_sum.coords[j];
 		// printf("iter %d) centroid %d (%f:%f) with %d elements\n", iter, i, centroids[i].p.coords[0], centroids[i].p.coords[1], sum_of_lengths);
+	}
+	CONVERGED = (max_var < STOPPING_VARIANCE);
+
+}
+
+void performRounds(thread threads[], ClassedPoint* first_points[THREADS], int partition_lengths[THREADS]) {
+	while (!CONVERGED){
+		for (int thread_i = 0; thread_i < THREADS; ++thread_i) {
+			threads[thread_i] = thread(worker, first_points[thread_i], partition_lengths[thread_i], thread_i);
+		}
+		for (int thread_i = 0; thread_i < THREADS; ++thread_i) {
+			threads[thread_i].join();
+		}
+		update_centers();
 	}
 }
 
@@ -151,14 +178,6 @@ int main(int argc, char** argv) {
 	ClassedPoint* first_points[THREADS];
 	int partition_lengths[THREADS];
 	build_partitions(first_points, partition_lengths);
-	for (int iter = 0; iter < 500; ++iter) { // stop condition
-		for (int thread_i = 0; thread_i < THREADS; ++thread_i) {
-			threads[thread_i] = thread(worker, first_points[thread_i], partition_lengths[thread_i], thread_i);
-		}
-		for (int thread_i = 0; thread_i < THREADS; ++thread_i) {
-			threads[thread_i].join();
-		}
-		update_centers(iter);
-	}
+	performRounds(threads, first_points, partition_lengths);
 	return 0;
 }
