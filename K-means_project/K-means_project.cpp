@@ -66,7 +66,8 @@ void worker(ClassedPoint* first_point, int partition_length, int thread_num) {
 		// printf("\tbest_k = %d\n", first_point[i].k);
 	}
 	for (int i = 0; i < NUM_CLUSTERS; ++i) { // reset cluster sum and count for this thread
-		centroids[i].sum[thread_num] = Point{};
+		Point p = {};
+		centroids[i].sum[thread_num] = p;
 		centroids[i].sum[thread_num].coords.resize(POINT_DIMENSION);
 		centroids[i].partition_lengths[thread_num] = 0;
 	}
@@ -108,25 +109,28 @@ void update_centers() {
 			}
 			sum_of_lengths += centroids[i].partition_lengths[j];
 		}
-		double dist = distance(centroids[i].p, point_sum);
+		
 		double point_sum_square_norm = 0;
 		for (int j = 0; j < POINT_DIMENSION; ++j) {
 			point_sum.coords[j]  = point_sum.coords[j] / sum_of_lengths; // new centroid
 			point_sum_square_norm += (point_sum.coords[j] * point_sum.coords[j]);
+		}
+		double dist = distance(centroids[i].p, point_sum);
+		for(int j=0; j< POINT_DIMENSION; ++j){
 			centroids[i].p.coords[j] = point_sum.coords[j];
 		}
+		
 		double variance = dist / point_sum_square_norm;
 		if (variance > max_var) {
 			max_var = variance;
 		}
-		//centroids[i].p.coords[j] = point_sum.coords[j];
 		// printf("iter %d) centroid %d (%f:%f) with %d elements\n", iter, i, centroids[i].p.coords[0], centroids[i].p.coords[1], sum_of_lengths);
 	}
 	CONVERGED = (max_var < STOPPING_VARIANCE);
 
 }
 
-void performRounds(thread threads[], ClassedPoint* first_points[THREADS], int partition_lengths[THREADS]) {
+void performRounds(thread threads[], ClassedPoint** first_points, int* partition_lengths) {
 	while (!CONVERGED){
 		for (int thread_i = 0; thread_i < THREADS; ++thread_i) {
 			threads[thread_i] = thread(worker, first_points[thread_i], partition_lengths[thread_i], thread_i);
