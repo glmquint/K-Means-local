@@ -7,8 +7,9 @@
 #include <sstream>
 #include <cstdlib>
 #include <limits>
+#include <string>
 
-#define THREADS 4
+#define THREADS 1
 
 using namespace std;
 
@@ -31,7 +32,7 @@ struct Centroid_s {
 typedef struct Centroid_s Centroid;
 
 int POINT_DIMENSION = 0;
-int NUM_CLUSTERS = 10;
+int NUM_CLUSTERS = 2;
 
 vector<ClassedPoint> points;
 vector<Centroid> centroids;
@@ -170,10 +171,11 @@ void generateRandomCentroids() {
 }
 
 int main(int argc, char** argv) {
-	if (argc < 2) {
+	if (argc < 3) {
 		printf("Give me a dataset file\n");
 		exit(1);
 	}
+	NUM_CLUSTERS = stoi(argv[2]);
 	readCSVFile(argv[1], &points);
 	POINT_DIMENSION = (int)points[0].p.coords.size();
 	generateRandomCentroids();
