@@ -185,5 +185,12 @@ int main(int argc, char** argv) {
 	int partition_lengths[THREADS];
 	build_partitions(first_points, partition_lengths);
 	performRounds(threads, first_points, partition_lengths);
+	for(int i = 0; i<NUM_CLUSTERS; i++){
+		printf("Centro %d : ", i);
+		for(int j = 0; j<POINT_DIMENSION; j++){
+			printf("%f ", centroids[i].p.coords[j]);
+		}
+		printf("\n");
+	}
 	return 0;
 }
