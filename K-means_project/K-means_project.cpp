@@ -41,7 +41,7 @@ vector<Centroid> centroids;
 // distance squared between 2 points
 // root square is not necessarry for distance comparison
 // and is removeed as optimization
-double distance(Point a, Point b) {
+double distance(Point &a, Point &b) {
 	double sum_of_squares = 0;
 	for (int i = 0; i < a.coords.size(); ++i) {
 		double diff_coord = a.coords[i] - b.coords[i];
