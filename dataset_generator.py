@@ -8,8 +8,8 @@ if __name__ == "__main__":
     x = []
     y = []
     for c in range(NUM_CENTERS):
-        cx = randint(-100, 100)
-        cy = randint(-100, 100)
+        cx = randint(-1000, 1000)
+        cy = randint(-1000, 1000)
         s = randrange(1, 10)
         for p in range(NUM_POINTS):
             coord = []
