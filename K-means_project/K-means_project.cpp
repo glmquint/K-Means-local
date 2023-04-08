@@ -141,20 +141,26 @@ void performRounds(vector<thread> &threads, vector<ClassedPoint*> first_points, 
 	}
 }
 
+void parseDataset(string line, vector<ClassedPoint> *points) {
+	ClassedPoint classed_point = { {}, -1 };
+	char* field;
+	char* next_tok;
+	field = strtok_s((char*)line.c_str(), ",", &next_tok);
+	double coord = 0;
+	while (field != NULL) {
+		coord = stod(field);
+		classed_point.p.coords.push_back(coord);
+		field = strtok_s(NULL, ",", &next_tok);
+	}
+	points->push_back(classed_point);
+}
+
 void readCSVFile(char* file_name, vector<ClassedPoint> *points) {
 	fstream my_file;
 	string line;
-	string field;
 	my_file.open(file_name, ios::in);
 	while (getline(my_file, line)) { // for each line
-		ClassedPoint classed_point = { {}, -1 };
-		istringstream s(line);
-		while (getline(s, field, ',')) { // for each comma-separated field
-			double coord = 0;
-			coord = stod(field);
-			classed_point.p.coords.push_back(coord);
-		}
-		points->push_back(classed_point);
+		parseDataset(line, points);
 	}
 }
 
