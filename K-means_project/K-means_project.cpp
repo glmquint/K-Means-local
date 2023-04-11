@@ -16,9 +16,10 @@ double STOPPING_VARIANCE = 0.1;
 bool CONVERGED = false;
 int POINT_DIMENSION = 0;
 int NUM_CLUSTERS = 2;
+int DATASET_SIZE;
 
 struct Point_s {
-	vector<double> coords; // maybe optimize with 1 allocated array
+	double* coords; // maybe optimize with 1 allocated array
 };
 typedef struct Point_s Point;
 
@@ -35,7 +36,7 @@ struct Centroid_s {
 };
 typedef struct Centroid_s Centroid;
 
-vector<ClassedPoint> points;
+ClassedPoint* points;
 vector<Centroid> centroids;
 
 // distance squared between 2 points
@@ -43,7 +44,7 @@ vector<Centroid> centroids;
 // and is removeed as optimization
 double distance(Point &a, Point &b) {
 	double sum_of_squares = 0;
-	for (int i = 0; i < a.coords.size(); ++i) {
+	for (int i = 0; i < POINT_DIMENSION; ++i) {
 		double diff_coord = a.coords[i] - b.coords[i];
 		sum_of_squares += (diff_coord * diff_coord);
 	}
@@ -70,7 +71,7 @@ void worker(ClassedPoint* first_point, int partition_length, int thread_num) {
 	for (int i = 0; i < NUM_CLUSTERS; ++i) { // reset cluster sum and count for this thread
 		Point p = {};
 		centroids[i].sum[thread_num] = p;
-		centroids[i].sum[thread_num].coords.resize(POINT_DIMENSION);
+		centroids[i].sum[thread_num].coords = new double[POINT_DIMENSION];
 		centroids[i].partition_lengths[thread_num] = 0;
 	}
 	for (int i = 0; i < partition_length; ++i) {
@@ -82,9 +83,8 @@ void worker(ClassedPoint* first_point, int partition_length, int thread_num) {
 }
 
 void buildPartitions(vector<ClassedPoint*> &first_points, vector<int> &partition_lengths) {
-	int dataset_length = (int)points.size();
-	int reminder = dataset_length % THREADS;
-	int points_per_thread = dataset_length / THREADS;
+	int reminder = DATASET_SIZE % THREADS;
+	int points_per_thread = DATASET_SIZE / THREADS;
 	for (int i = 0; i < THREADS; ++i) {
 		partition_lengths[i] = points_per_thread;
 		if (i == THREADS - 1)
@@ -97,7 +97,7 @@ void updateCenters() {
 	double max_var = numeric_limits<double>::min();
 	for (int i = 0; i < (int)centroids.size(); ++i) {
 		Point point_sum = {};
-		point_sum.coords.resize(POINT_DIMENSION);
+		point_sum.coords = new double[POINT_DIMENSION];
 		for (int k = 0; k < POINT_DIMENSION; ++k) {
 			point_sum.coords[k] = 0;
 		}
@@ -141,33 +141,10 @@ void performRounds(vector<thread> &threads, vector<ClassedPoint*> first_points, 
 	}
 }
 
-void parseDataset(string line, vector<ClassedPoint> *points) {
-	ClassedPoint classed_point = { {}, -1 };
-	char* field;
-	char* next_tok;
-	field = strtok_s((char*)line.c_str(), ",", &next_tok);
-	double coord = 0;
-	while (field != NULL) {
-		coord = stod(field);
-		classed_point.p.coords.push_back(coord);
-		field = strtok_s(NULL, ",", &next_tok);
-	}
-	points->push_back(classed_point);
-}
-
-void readCSVFile(char* file_name, vector<ClassedPoint> *points) {
-	fstream my_file;
-	string line;
-	my_file.open(file_name, ios::in);
-	while (getline(my_file, line)) { // for each line
-		parseDataset(line, points);
-	}
-}
-
 void generateRandomCentroids() {
 	srand(69420);
 	for (int i = 0; i < NUM_CLUSTERS; ++i) {
-		int random_index = rand() % (points.size());
+		int random_index = rand() % (DATASET_SIZE);
 		Centroid c = {};
 		c.p = points[random_index].p;
 		c.sum.resize(THREADS);
@@ -176,15 +153,35 @@ void generateRandomCentroids() {
 	}
 }
 
+
+void deserializePoints(char* intput_file) {
+	ifstream infile;
+	infile.open(intput_file, ios::in | ios::binary);
+	if (infile.fail()) {
+		cout << "can't find file " << intput_file << endl;
+		exit(1);
+	}
+	infile.read((char *)(&DATASET_SIZE), sizeof(DATASET_SIZE));
+	points = new ClassedPoint[DATASET_SIZE];
+	infile.read((char *)(&POINT_DIMENSION), sizeof(POINT_DIMENSION));
+	for (int i = 0; i < DATASET_SIZE; i++) {
+		points[i].p.coords = new double[POINT_DIMENSION];
+		points[i].k = 0;
+		for (int j = 0; j < POINT_DIMENSION; ++j) {
+			infile.read((char *)(&points[i].p.coords[j]), sizeof(double));
+		}
+	}
+	infile.close();
+}
+
 int main(int argc, char** argv) {
 	if (argc < 4) {
-		printf("[USAGE]: %s dataset.csv num_clusters num_threads\n", argv[0]);
+		printf("[USAGE]: %s dataset.serialized num_clusters num_threads\n", argv[0]);
 		exit(1);
 	}
 	NUM_CLUSTERS = stoi(argv[2]);
 	THREADS = stoi(argv[3]);
-	readCSVFile(argv[1], &points);
-	POINT_DIMENSION = (int)points[0].p.coords.size();
+	deserializePoints(argv[1]);
 	generateRandomCentroids();
 
 	vector<thread> threads;
@@ -195,9 +192,9 @@ int main(int argc, char** argv) {
 	partition_lengths.resize(THREADS);
 	buildPartitions(first_points, partition_lengths);
 	performRounds(threads, first_points, partition_lengths);
-	for(int i = 0; i<NUM_CLUSTERS; i++){
+	for (int i = 0; i < NUM_CLUSTERS; i++) {
 		printf("Centro %d : ", i);
-		for(int j = 0; j<POINT_DIMENSION; j++){
+		for (int j = 0; j < POINT_DIMENSION; j++) {
 			printf("%f ", centroids[i].p.coords[j]);
 		}
 		printf("\n");
