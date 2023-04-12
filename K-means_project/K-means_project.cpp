@@ -72,6 +72,10 @@ void worker(ClassedPoint* first_point, int partition_length, int thread_num) {
 		Point p = {};
 		centroids[i].sum[thread_num] = p;
 		centroids[i].sum[thread_num].coords = new double[POINT_DIMENSION];
+		for (int k = 0; k < POINT_DIMENSION; ++k) {
+			centroids[i].sum[thread_num].coords[k] = 0;
+		}
+
 		centroids[i].partition_lengths[thread_num] = 0;
 	}
 	for (int i = 0; i < partition_length; ++i) {
@@ -95,7 +99,7 @@ void buildPartitions(vector<ClassedPoint*> &first_points, vector<int> &partition
 
 void updateCenters() {
 	double max_var = numeric_limits<double>::min();
-	for (int i = 0; i < (int)centroids.size(); ++i) {
+	for (int i = 0; i < NUM_CLUSTERS; ++i) {
 		Point point_sum = {};
 		point_sum.coords = new double[POINT_DIMENSION];
 		for (int k = 0; k < POINT_DIMENSION; ++k) {
