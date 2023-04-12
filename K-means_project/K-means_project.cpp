@@ -19,7 +19,7 @@ int NUM_CLUSTERS = 2;
 int DATASET_SIZE;
 
 struct Point_s {
-	double* coords; // maybe optimize with 1 allocated array
+	double* coords; 
 };
 typedef struct Point_s Point;
 
@@ -31,13 +31,13 @@ typedef struct ClassedPoint_s ClassedPoint;
 
 struct Centroid_s {
 	Point p;
-	vector<Point> sum; // size(sum) == THREADS;
-	vector<int> partition_lengths; // size(partition_lengths) == THREADS;
+	Point* sum; // size(sum) == THREADS;
+	int* partition_lengths; // size(partition_lengths) == THREADS;
 };
 typedef struct Centroid_s Centroid;
 
 ClassedPoint* points;
-vector<Centroid> centroids;
+Centroid* centroids;
 
 // distance squared between 2 points
 // root square is not necessarry for distance comparison
@@ -60,7 +60,7 @@ void worker(ClassedPoint* first_point, int partition_length, int thread_num) {
 			// print works with only 2 dimensions
 			// printf("\t\t(%f:%f) - (%f:%f) -> %f\n", first_point[i].p.coords[0], first_point[i].p.coords[1],
 			//		 centroids[j].p.coords[0], centroids[j].p.coords[1], dist);
-			 if (dist < min_d) {
+			if (dist < min_d) {
 				best_k = j;
 				min_d = dist;
 			}
@@ -69,9 +69,6 @@ void worker(ClassedPoint* first_point, int partition_length, int thread_num) {
 		// printf("\tbest_k = %d\n", first_point[i].k);
 	}
 	for (int i = 0; i < NUM_CLUSTERS; ++i) { // reset cluster sum and count for this thread
-		Point p = {};
-		centroids[i].sum[thread_num] = p;
-		centroids[i].sum[thread_num].coords = new double[POINT_DIMENSION];
 		for (int k = 0; k < POINT_DIMENSION; ++k) {
 			centroids[i].sum[thread_num].coords[k] = 0;
 		}
@@ -86,7 +83,7 @@ void worker(ClassedPoint* first_point, int partition_length, int thread_num) {
 	}
 }
 
-void buildPartitions(vector<ClassedPoint*> &first_points, vector<int> &partition_lengths) {
+void buildPartitions(ClassedPoint** first_points, int* partition_lengths) {
 	int reminder = DATASET_SIZE % THREADS;
 	int points_per_thread = DATASET_SIZE / THREADS;
 	for (int i = 0; i < THREADS; ++i) {
@@ -133,7 +130,7 @@ void updateCenters() {
 
 }
 
-void performRounds(vector<thread> &threads, vector<ClassedPoint*> first_points, vector<int> partition_lengths) {
+void performRounds(thread* threads, ClassedPoint** first_points, int* partition_lengths) {
 	while (!CONVERGED){
 		for (int thread_i = 0; thread_i < THREADS; ++thread_i) {
 			threads[thread_i] = thread(worker, first_points[thread_i], partition_lengths[thread_i], thread_i);
@@ -149,11 +146,18 @@ void generateRandomCentroids() {
 	srand(69420);
 	for (int i = 0; i < NUM_CLUSTERS; ++i) {
 		int random_index = rand() % (DATASET_SIZE);
-		Centroid c = {};
-		c.p = points[random_index].p;
-		c.sum.resize(THREADS);
-		c.partition_lengths.resize(THREADS);
-		centroids.push_back(c);
+		Centroid* c = new Centroid;
+		c->p = points[random_index].p;
+		c->sum = new Point[THREADS];
+		c->partition_lengths = new int[THREADS];
+		for (int j = 0; j < THREADS; ++j) {
+			c->sum[j].coords = new double[POINT_DIMENSION];
+			for (int k = 0; k < POINT_DIMENSION; ++k) {
+				c->sum[j].coords[k] = 0;
+			}
+			c->partition_lengths[j] = 0;
+		}
+		centroids[i] = *c;
 	}
 }
 
@@ -185,15 +189,13 @@ int main(int argc, char** argv) {
 	}
 	NUM_CLUSTERS = stoi(argv[2]);
 	THREADS = stoi(argv[3]);
+	centroids = new Centroid[NUM_CLUSTERS];
 	deserializePoints(argv[1]);
 	generateRandomCentroids();
 
-	vector<thread> threads;
-	threads.resize(THREADS);
-	vector<ClassedPoint*> first_points;
-	first_points.resize(THREADS);
-	vector<int> partition_lengths;
-	partition_lengths.resize(THREADS);
+	thread* threads = new thread[THREADS];
+	ClassedPoint** first_points = new ClassedPoint * [THREADS];
+	int* partition_lengths = new int[THREADS];
 	buildPartitions(first_points, partition_lengths);
 	performRounds(threads, first_points, partition_lengths);
 	for (int i = 0; i < NUM_CLUSTERS; i++) {
