@@ -44,30 +44,15 @@ Centroid* centroids;
 // and is removeed as optimization
 double distance(Point &a, Point &b) {
 	double sum_of_squares = 0;
+	double diff_coord;
 	for (int i = 0; i < POINT_DIMENSION; ++i) {
-		double diff_coord = a.coords[i] - b.coords[i];
+		diff_coord = a.coords[i] - b.coords[i];
 		sum_of_squares += (diff_coord * diff_coord);
 	}
 	return sum_of_squares;
 }
 
-void worker(ClassedPoint* first_point, int partition_length, int thread_num) {
-	for (int i = 0; i < partition_length; ++i) { // for each point in partition
-		double min_d = numeric_limits<double>::max();
-		int best_k = -1;
-		for (int j = 0; j < NUM_CLUSTERS; ++j) { // for each centroid
-			double dist = distance(first_point[i].p, centroids[j].p); // distance between point_i and centroid_j
-			// print works with only 2 dimensions
-			// printf("\t\t(%f:%f) - (%f:%f) -> %f\n", first_point[i].p.coords[0], first_point[i].p.coords[1],
-			//		 centroids[j].p.coords[0], centroids[j].p.coords[1], dist);
-			if (dist < min_d) {
-				best_k = j;
-				min_d = dist;
-			}
-		}
-		first_point[i].k = best_k;
-		// printf("\tbest_k = %d\n", first_point[i].k);
-	}
+void aggregatePoints(ClassedPoint* first_point, int partition_length, int thread_num) {
 	for (int i = 0; i < NUM_CLUSTERS; ++i) { // reset cluster sum and count for this thread
 		for (int k = 0; k < POINT_DIMENSION; ++k) {
 			centroids[i].sum[thread_num].coords[k] = 0;
@@ -83,6 +68,32 @@ void worker(ClassedPoint* first_point, int partition_length, int thread_num) {
 	}
 }
 
+void worker(ClassedPoint* first_point, int partition_length, int thread_num) {
+	double min_d;
+	int best_k;
+	double dist;
+	for (int i = 0; i < partition_length; ++i) { // for each point in partition
+		min_d = 1.7976931348623157e+308;
+		best_k = -1;
+		for (int j = 0; j < NUM_CLUSTERS; ++j) { // for each centroid
+			dist = distance(first_point[i].p, centroids[j].p); // distance between point_i and centroid_j
+			// print works with only 2 dimensions
+			// printf("\t\t(%f:%f) - (%f:%f) -> %f\n", first_point[i].p.coords[0], first_point[i].p.coords[1],
+			//		 centroids[j].p.coords[0], centroids[j].p.coords[1], dist);
+			// BOTTLENECK !!!!
+			//if (dist < min_d) {
+				best_k = j;
+				min_d = dist;
+			//}
+			// best_k = j * (dist < min_d) + best_k * (dist >= min_d);
+			// min_d = dist * (dist < min_d) + min_d * (dist >= min_d);
+		}
+		first_point[i].k = best_k;
+		// printf("\tbest_k = %d\n", first_point[i].k);
+	}
+	aggregatePoints(first_point, partition_length, thread_num);
+}
+
 void buildPartitions(ClassedPoint** first_points, int* partition_lengths) {
 	int reminder = DATASET_SIZE % THREADS;
 	int points_per_thread = DATASET_SIZE / THREADS;
@@ -93,6 +104,9 @@ void buildPartitions(ClassedPoint** first_points, int* partition_lengths) {
 		first_points[i] = &points[points_per_thread * i];
 	}
 }
+
+// TODO:
+// SET FIXED NUMBER OF ITERATIONS
 
 void updateCenters() {
 	double max_var = numeric_limits<double>::min();
@@ -132,11 +146,16 @@ void updateCenters() {
 
 void performRounds(thread* threads, ClassedPoint** first_points, int* partition_lengths) {
 	while (!CONVERGED){
-		for (int thread_i = 0; thread_i < THREADS; ++thread_i) {
-			threads[thread_i] = thread(worker, first_points[thread_i], partition_lengths[thread_i], thread_i);
+		if (THREADS != 1) {
+			for (int thread_i = 0; thread_i < THREADS; ++thread_i) {
+				threads[thread_i] = thread(worker, first_points[thread_i], partition_lengths[thread_i], thread_i);
+			}
+			for (int thread_i = 0; thread_i < THREADS; ++thread_i) {
+				threads[thread_i].join();
+			}
 		}
-		for (int thread_i = 0; thread_i < THREADS; ++thread_i) {
-			threads[thread_i].join();
+		else {
+			worker(first_points[0], partition_lengths[0], 0);
 		}
 		updateCenters();
 	}
