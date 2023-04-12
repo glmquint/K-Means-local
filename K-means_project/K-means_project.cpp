@@ -81,10 +81,10 @@ void worker(ClassedPoint* first_point, int partition_length, int thread_num) {
 			// printf("\t\t(%f:%f) - (%f:%f) -> %f\n", first_point[i].p.coords[0], first_point[i].p.coords[1],
 			//		 centroids[j].p.coords[0], centroids[j].p.coords[1], dist);
 			// BOTTLENECK !!!!
-			//if (dist < min_d) {
+			if (dist < min_d) {
 				best_k = j;
 				min_d = dist;
-			//}
+			}
 			// best_k = j * (dist < min_d) + best_k * (dist >= min_d);
 			// min_d = dist * (dist < min_d) + min_d * (dist >= min_d);
 		}
