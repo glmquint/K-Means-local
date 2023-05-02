@@ -372,3 +372,5 @@ K-means_project.dSYM
 vtune
 launch-vtune.sh
 CSV_Preprocessor
+/results
+/results-old

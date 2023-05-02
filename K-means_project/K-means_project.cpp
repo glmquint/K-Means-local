@@ -8,11 +8,13 @@
 #include <cstdlib>
 #include <limits>
 #include <string>
+#include <chrono>
+#include <math.h>
 
 using namespace std;
 
 int THREADS = 1;
-double STOPPING_VARIANCE = 0.1;
+double STOPPING_VARIANCE = 0.05;
 bool CONVERGED = false;
 int POINT_DIMENSION = 0;
 int NUM_CLUSTERS = 2;
@@ -105,6 +107,27 @@ void buildPartitions(ClassedPoint** first_points, int* partition_lengths) {
 	}
 }
 
+void buildPartitionsByHands(ClassedPoint** first_points, int* partition_lengths) {
+	float val[] = { 0.135, 0.135, 0.13, 0.125, 0.125, 0.12, 0.115, 0.115 };
+	int acc = 0;
+	for (int i = 0; i < THREADS; ++i) {
+		int points_per_thread = floor(DATASET_SIZE * val[i]);
+		partition_lengths[i] = points_per_thread;
+		first_points[i] = &points[acc];
+		acc += points_per_thread;
+	}
+}
+
+/*void buildPartitionsProportions(ClassedPoint** first_points, int* partitions_lengths) {
+	int max_diff = DATASET_SIZE * 0.3;
+	for (int i = 0; i < THREADS; ++i) {
+		int points_per_thread = DATASET_SIZE / THREADS;
+		points_per_thread += max_diff * (THREADS / 2 - i);
+		
+	}
+}
+*/
+
 // TODO:
 // SET FIXED NUMBER OF ITERATIONS
 
@@ -145,6 +168,7 @@ void updateCenters() {
 }
 
 void performRounds(thread* threads, ClassedPoint** first_points, int* partition_lengths) {
+	int round = 0;
 	while (!CONVERGED){
 		if (THREADS != 1) {
 			for (int thread_i = 0; thread_i < THREADS; ++thread_i) {
@@ -158,7 +182,9 @@ void performRounds(thread* threads, ClassedPoint** first_points, int* partition_
 			worker(first_points[0], partition_lengths[0], 0);
 		}
 		updateCenters();
+		round++;
 	}
+	//printf("took %d rounds\n", round);
 }
 
 void generateRandomCentroids() {
@@ -166,7 +192,11 @@ void generateRandomCentroids() {
 	for (int i = 0; i < NUM_CLUSTERS; ++i) {
 		int random_index = rand() % (DATASET_SIZE);
 		Centroid* c = new Centroid;
-		c->p = points[random_index].p;
+		c->p = *new Point;
+		c->p.coords = new double[POINT_DIMENSION];
+		for (int coord = 0; coord < POINT_DIMENSION; coord++) {
+			c->p.coords[coord] = points[random_index].p.coords[coord];
+		}
 		c->sum = new Point[THREADS];
 		c->partition_lengths = new int[THREADS];
 		for (int j = 0; j < THREADS; ++j) {
@@ -193,7 +223,7 @@ void deserializePoints(char* intput_file) {
 	infile.read((char *)(&POINT_DIMENSION), sizeof(POINT_DIMENSION));
 	for (int i = 0; i < DATASET_SIZE; i++) {
 		points[i].p.coords = new double[POINT_DIMENSION];
-		points[i].k = 0;
+		points[i].k = -1;
 		for (int j = 0; j < POINT_DIMENSION; ++j) {
 			infile.read((char *)(&points[i].p.coords[j]), sizeof(double));
 		}
@@ -209,20 +239,34 @@ int main(int argc, char** argv) {
 	NUM_CLUSTERS = stoi(argv[2]);
 	THREADS = stoi(argv[3]);
 	centroids = new Centroid[NUM_CLUSTERS];
-	deserializePoints(argv[1]);
-	generateRandomCentroids();
-
 	thread* threads = new thread[THREADS];
 	ClassedPoint** first_points = new ClassedPoint * [THREADS];
 	int* partition_lengths = new int[THREADS];
-	buildPartitions(first_points, partition_lengths);
-	performRounds(threads, first_points, partition_lengths);
-	for (int i = 0; i < NUM_CLUSTERS; i++) {
-		printf("Centro %d : ", i);
-		for (int j = 0; j < POINT_DIMENSION; j++) {
-			printf("%f ", centroids[i].p.coords[j]);
+
+	deserializePoints(argv[1]);
+	//buildPartitions(first_points, partition_lengths);
+	buildPartitionsByHands(first_points, partition_lengths);
+	for (int rep = 0; rep < 30; rep++) {
+		generateRandomCentroids();
+		for (int i = 0; i < DATASET_SIZE; i++) {
+			points[i].k = -1;
 		}
-		printf("\n");
+
+		CONVERGED = false;
+		auto start = std::chrono::high_resolution_clock::now();
+		performRounds(threads, first_points, partition_lengths);
+		auto end = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> diff = end - start;
+		printf("%f\n", diff.count());
+		/*
+		for (int i = 0; i < NUM_CLUSTERS; i++) {
+			printf("Centro %d : ", i);
+			for (int j = 0; j < POINT_DIMENSION; j++) {
+				printf("%f ", centroids[i].p.coords[j]);
+			}
+			printf("\n");
+		}
+		*/
 	}
 	return 0;
 }

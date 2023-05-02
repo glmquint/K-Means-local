@@ -44,12 +44,12 @@ void parseDataset(string line) {
 	ClassedPoint classed_point = { {}, -1 };
 	char* field;
 	char* next_tok;
-	field = strtok_r((char*)line.c_str(), ",", &next_tok); // change to strtok_s in windows
+	field = strtok_s((char*)line.c_str(), ",", &next_tok); // change to strtok_s in windows
 	double coord = 0;
 	while (field != NULL) {
 		coord = stod(field);
 		classed_point.p.coords.push_back(coord);
-		field = strtok_r(NULL, ",", &next_tok);
+		field = strtok_s(NULL, ",", &next_tok);
 	}
 	points.push_back(classed_point);
 }
