@@ -1,0 +1,96 @@
+﻿ARK | Confronta i prodotti Intel®
+2023/04/29 10:49:43
+,Processore Intel® Core™ i7-6700HQ  (6 MB di cache- fino a 3-50 GHz)
+
+Di base
+Raccolta di prodotti,Processori Intel® Core™ i7 di sesta generazione
+Nome in codice,Prodotti precedentemente noti come  Skylake
+Segmento verticale,Mobile
+Numero del processore,i7-6700HQ
+Litografia,14 nm
+Prezzo consigliato per il cliente,$378.00
+
+Specifiche CPU
+Numero di core,4
+Numero di thread,8
+Frequenza turbo massima,3 | 50 GHz
+Frequenza della tecnologia Intel® Turbo Boost 2.0‡,3.50 GHz
+Frequenza base del processore,2 | 60 GHz
+Cache,6 MB Intel® Smart Cache
+Velocità del bus,8 GT/s
+TDP,45 W
+TDP-down configurabile,35 W
+
+Informazioni supplementari
+Stato,Discontinued
+Data di lancio,Q3'15
+Servicing Status,End of Servicing Lifetime
+End of Servicing Updates Date,Friday |  September 30 |  2022
+Opzioni integrate disponibili,No
+Datasheet,Guarda ora
+
+Specifiche della memoria
+Dimensione memoria massima (in base al tipo di memoria),64 GB
+Tipi di memoria,DDR4-2133 |  LPDDR3-1866 |  DDR3L-1600
+N. massimo di canali di memoria,2
+Larghezza di banda di memoria massima,34.1 GB/s
+Memoria ECC supportata ‡,No
+
+Grafica del processore
+Grafica del processore ‡,Grafica Intel® HD 530
+Frequenza di base grafica,350 MHz
+Frequenza dinamica massima grafica,1.05 GHz
+Memoria massima video grafica,64 GB
+Output grafica,eDP/DP/HDMI/DVI
+Supporto 4K,Yes |  at 60Hz
+Risoluzione massima (HDMI)‡,4096x2304@24Hz
+Risoluzione massima (DP)‡,4096x2304@60Hz
+Risoluzione massima (eDP - schermo piatto integrato)‡,4096x2304@60Hz
+Risoluzione massima (VGA)‡,N/A
+Supporto DirectX*,12
+Supporto OpenGL*,4.5
+Intel® Quick Sync Video,Sì
+Intel InTru 3D Technology,Sì
+Intel® Clear Video HD Technology,Sì
+tecnologia Intel® Clear Video,Sì
+N. di schermi supportati ‡,3
+ID dispositivo,0x191B
+
+Opzioni di espansione
+Revisione PCI Express,3 | 0
+Configurazioni PCI Express ‡,Up to 1x16 |  2x8 |  1x8+2x4
+Numero massimo di corsie PCI Express,16
+
+Specifiche del package
+Socket supportati,FCBGA1440
+Configurazione CPU massima,1
+TJUNCTION,100°C
+Dimensione package,42mm x 28mm
+
+Tecnologie avanzate
+Tecnologia Intel® Turbo Boost ‡,2 | 0
+Tecnologia Intel® Hyper-Threading ‡,Sì
+Intel® TSX-NI,No
+Intel® 64 ‡,Sì
+Set di istruzioni,64-bit
+Estensioni set di istruzioni,Intel® SSE4.1 |  Intel® SSE4.2 |  Intel® AVX2
+Tecnologia Intel® My WiFi,Sì
+Stati di inattività,Sì
+Tecnologia Intel SpeedStep® avanzata,Sì
+Tecnologie di monitoraggio termico,Sì
+Intel® Flex Memory Access,Sì
+Tecnologia Intel® di protezione dell’identità ‡,Sì
+Tecnologia Intel® Smart Response,Sì
+
+Sicurezza e affidabilità
+Intel® AES New Instructions,Sì
+Secure Key,Sì
+Intel® Software Guard Extensions (Intel®SGX),Yes with Intel® ME
+Intel® Memory Protection Extensions (Intel® MPX),Sì
+Intel® OS Guard,Sì
+Intel® Trusted Execution Technology ‡,No
+Execute Disable Bit ‡,Sì
+Programma Intel® per la stabilità dell'immagine della piattaforma,No
+Intel® Virtualization Technology ‡,Sì
+Intel® Virtualization Technology for Directed I/O ‡,Sì
+Intel® VT-x con Extended Page Tables (EPT) ‡,Sì
