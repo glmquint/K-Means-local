@@ -85,8 +85,11 @@ void worker(ClassedPoint *first_point, int partition_length, int thread_num)
 	double min_d;
 	int best_k;
 	double dist;
+
 	Point *sum;
+	int* points_per_centroid;
 	sum = new Point[NUM_CLUSTERS];
+	points_per_centroid = new int[NUM_CLUSTERS];
 	for (int j = 0; j < NUM_CLUSTERS; ++j)
 	{
 		sum[j].coords = new double[POINT_DIMENSION];
@@ -94,16 +97,16 @@ void worker(ClassedPoint *first_point, int partition_length, int thread_num)
 		{
 			sum[j].coords[k] = 0;
 		}
+		points_per_centroid[j] = 0;
 	}
-	for (int i = 0; i < NUM_CLUSTERS; ++i)
-	{ // reset cluster sum and count for this thread
-		for (int k = 0; k < POINT_DIMENSION; ++k)
-		{
-			centroids[i].sum[thread_num].coords[k] = 0;
-		}
-
-		centroids[i].partition_lengths[thread_num] = 0;
-	}
+	// for (int i = 0; i < NUM_CLUSTERS; ++i)
+	// { // reset cluster sum and count for this thread
+	// 	for (int k = 0; k < POINT_DIMENSION; ++k)
+	// 	{
+	// 		centroids[i].sum[thread_num].coords[k] = 0;
+	// 	}
+	// 	centroids[i].partition_lengths[thread_num] = 0;
+	// }
 	for (int i = 0; i < partition_length; ++i)
 	{ // for each point in partition
 		min_d = 1.7976931348623157e+308;
@@ -126,15 +129,18 @@ void worker(ClassedPoint *first_point, int partition_length, int thread_num)
 		first_point[i].k = best_k;
 		for (int j = 0; j < POINT_DIMENSION; ++j)
 		{
+			//centroids[best_k].sum[thread_num].coords[j] += first_point[i].p.coords[j];
 			sum[best_k].coords[j] += first_point[i].p.coords[j];
 		}
-		centroids[best_k].partition_lengths[thread_num]++;
+		points_per_centroid[best_k]++;
+		//centroids[best_k].partition_lengths[thread_num]++;
 	}
 	// aggregatePoints(first_point, partition_length, thread_num);
 	for(int i=0; i<NUM_CLUSTERS; i++){
 		for(int j=0; j<POINT_DIMENSION; j++){
-			centroids[i].sum[thread_num].coords[j] += sum[i].coords[j];
+			centroids[i].sum[thread_num].coords[j] = sum[i].coords[j];
 		}
+		centroids[i].partition_lengths[thread_num] = points_per_centroid[i];
 	}
 }
 
@@ -235,6 +241,16 @@ void performRounds(thread *threads, ClassedPoint **first_points, int *partition_
 	int round = 0;
 	while (!CONVERGED)
 	{
+		for (int j = 0; j < THREADS; ++j) {
+			for (int i = 0; i < NUM_CLUSTERS; ++i)
+			{ // reset cluster sum and count for this thread
+				for (int k = 0; k < POINT_DIMENSION; ++k)
+				{
+					centroids[i].sum[j].coords[k] = 0;
+				}
+				centroids[i].partition_lengths[j] = 0;
+			}
+		}
 		if (THREADS != 1)
 		{
 			for (int thread_i = 0; thread_i < THREADS; ++thread_i)
