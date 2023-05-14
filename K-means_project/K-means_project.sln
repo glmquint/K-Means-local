@@ -5,6 +5,8 @@ VisualStudioVersion = 17.5.33516.290
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "K-means_project", "K-means_project.vcxproj", "{BD252345-9A47-4584-ABEF-0AFBD99DAE16}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "K-Means-GPU", "..\K-Means-GPU\K-Means-GPU.vcxproj", "{497CC1DA-FAA0-4A64-B205-E47E3DC021A4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{BD252345-9A47-4584-ABEF-0AFBD99DAE16}.Release|x64.Build.0 = Release|x64
 		{BD252345-9A47-4584-ABEF-0AFBD99DAE16}.Release|x86.ActiveCfg = Release|Win32
 		{BD252345-9A47-4584-ABEF-0AFBD99DAE16}.Release|x86.Build.0 = Release|Win32
+		{497CC1DA-FAA0-4A64-B205-E47E3DC021A4}.Debug|x64.ActiveCfg = Debug|x64
+		{497CC1DA-FAA0-4A64-B205-E47E3DC021A4}.Debug|x64.Build.0 = Debug|x64
+		{497CC1DA-FAA0-4A64-B205-E47E3DC021A4}.Debug|x86.ActiveCfg = Debug|x64
+		{497CC1DA-FAA0-4A64-B205-E47E3DC021A4}.Debug|x86.Build.0 = Debug|x64
+		{497CC1DA-FAA0-4A64-B205-E47E3DC021A4}.Release|x64.ActiveCfg = Release|x64
+		{497CC1DA-FAA0-4A64-B205-E47E3DC021A4}.Release|x64.Build.0 = Release|x64
+		{497CC1DA-FAA0-4A64-B205-E47E3DC021A4}.Release|x86.ActiveCfg = Release|x64
+		{497CC1DA-FAA0-4A64-B205-E47E3DC021A4}.Release|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
