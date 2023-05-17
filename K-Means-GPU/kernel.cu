@@ -165,6 +165,7 @@ void updateCenters()
 	{
 		Point point_sum = {};
 		//point_sum.coords = new double[POINT_DIMENSION];
+		/*
 		for (int k = 0; k < POINT_DIMENSION; ++k)
 		{
 			point_sum.coords[k] = 0;
@@ -174,12 +175,14 @@ void updateCenters()
 		{
 			point_sum.coords[k] += centroids[i].sum.coords[k];
 		}
-		sum_of_lengths += centroids[i].partition_lengths;
+		*/
+		point_sum.coords[k] = centroids[i].sum.coords[k];
+		int sum_of_lengths = centroids[i].partition_lengths;
 
 		double point_sum_square_norm = 0;
 		for (int j = 0; j < POINT_DIMENSION; ++j)
 		{
-			point_sum.coords[j] = point_sum.coords[j] / sum_of_lengths; // new centroid
+			point_sum.coords[j] /= sum_of_lengths; // new centroid
 			point_sum_square_norm += (point_sum.coords[j] * point_sum.coords[j]);
 		}
 		double dist = distanceCPU(centroids[i].p, point_sum);
