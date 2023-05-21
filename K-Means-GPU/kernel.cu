@@ -16,6 +16,8 @@
 #include <time.h>
 #include <cassert>
 
+#define PRINT_CENTERS
+
 using namespace std;
 clock_t tic, toc;
 
@@ -43,8 +45,8 @@ typedef struct ClassedPoint_s ClassedPoint;
 struct Centroid_s
 {
 	Point p;
-	Point sum;				// size(sum) == THREADS;
-	int partition_lengths; // size(partition_lengths) == THREADS;
+	Point* sum;				// size(sum) == THREADS;
+	int* partition_lengths; // size(partition_lengths) == THREADS;
 };
 typedef struct Centroid_s Centroid;
 
@@ -80,28 +82,6 @@ double distanceCPU(Point& a, Point& b)
 	return sum_of_squares;
 }
 
-/*
-void aggregatePoints(ClassedPoint* first_point, int partition_length, int thread_num)
-{
-	for (int i = 0; i < NUM_CLUSTERS; ++i)
-	{ // reset cluster sum and count for this thread
-		for (int k = 0; k < POINT_DIMENSION; ++k)
-		{
-			centroids[i].sum[thread_num].coords[k] = 0;
-		}
-
-		centroids[i].partition_lengths[thread_num] = 0;
-	}
-	for (int i = 0; i < partition_length; ++i) {
-		for (int j = 0; j < POINT_DIMENSION; ++j) {
-			centroids[first_point[i].k].sum[thread_num].coords[j] += first_point[i].p.coords[j];
-		}
-		centroids[first_point[i].k].partition_lengths[thread_num]++;
-	}
-}
-*/
-
-
 #if __CUDA_ARCH__ < 600
 __device__ double atomicAddDouble(double* address, double val)
 {
@@ -122,40 +102,57 @@ __device__ double atomicAddDouble(double* address, double val)
 }
 #endif
 
-__global__ void worker(ClassedPoint* d_point, Centroid* d_centr, int dataset_size, int num_clusters)
-{
-	double min_d = 1.7976931348623157e+308; // +inf
-	int best_k = -1;
-	double dist = 0;
-	int index = threadIdx.x + blockIdx.x * blockDim.x;
-	if (index < dataset_size) {
-		for (int i = 0; i < num_clusters; ++i) {
-			dist = distance(d_point[index].p, d_centr[i].p);
-			if (dist < min_d) {
-				min_d = dist;
-				best_k = i;
-			}
-		}
-		d_point[index].k = best_k;
-		for (int i = 0; i < 2; ++i) {
-			double* ptr = &(d_centr[best_k].sum.coords[i]);
-			double val = d_point[index].p.coords[i];
-			atomicAddDouble(ptr, val);
-		}
-		atomicAdd(&(d_centr[best_k].partition_lengths), 1);
-	}
-}
 
-__global__ void worker_test(ClassedPoint* d_pnt, Centroid* d_centr, int dataset_size, int num_clusters) {
+__global__ void worker(ClassedPoint* d_point, Centroid* d_centr, int dataset_size, int num_clusters, int partition_size)
+{
+	double dist = 0;
+	Point* sum;
+	int* points_per_centroid;
+
+	sum = new Point[num_clusters];
+	points_per_centroid = new int[num_clusters];
+	for (int j = 0; j < num_clusters; ++j)
+	{
+		for (int k = 0; k < 2; ++k)
+		{
+			sum[j].coords[k] = 0;
+		}
+		points_per_centroid[j] = 0;
+	}
 	int index = threadIdx.x + blockIdx.x * blockDim.x;
-	if (index < dataset_size) {
-		//printf("point %d (%f %f)\n", index, d_pnt[index].p.coords[0], d_pnt[index].p.coords[1]);
-		if (index == 1){
+	for (int elem = 0; elem < partition_size; ++elem) {
+		int partition_elem = partition_size * index + elem;
+		if (partition_elem < dataset_size) {
+			double min_d = 1.7976931348623157e+308; // +inf
+			int best_k = -1;
 			for (int i = 0; i < num_clusters; ++i) {
-				printf("centroid %i (%f %f)\n", i, d_centr[i].p.coords[0], d_centr[i].p.coords[1]);
+				dist = distance(d_point[partition_elem].p, d_centr[i].p);
+				if (dist < min_d) {
+					min_d = dist;
+					best_k = i;
+				}
+				// best_k = j * (dist < min_d) + best_k * (dist >= min_d);
+				// min_d = dist * (dist < min_d) + min_d * (dist >= min_d);
 			}
+			d_point[index].k = best_k;
+			for (int i = 0; i < 2; ++i) {
+				sum[best_k].coords[i] += d_point[partition_elem].p.coords[i];
+			}
+			points_per_centroid[best_k]++;
 		}
 	}
+	printf("%d) %f\n", index, sum[0].coords[0]);
+	printf("%d] %f\n", index, d_centr[0].sum[index].coords[0]);
+	for (int i = 0; i < num_clusters; ++i) {
+		for (int j = 0; j < 2; ++j) {
+			d_centr[i].sum[index].coords[j] = 10;// sum[i].coords[j];
+		}
+		d_centr[i].partition_lengths[index] = points_per_centroid[i];
+	}
+	printf("%d} %f\n", index, d_centr[0].sum[index].coords[0]);
+	// ok????
+	delete sum;
+	delete points_per_centroid;
 }
 
 void updateCenters()
@@ -165,19 +162,20 @@ void updateCenters()
 	{
 		Point point_sum = {};
 		//point_sum.coords = new double[POINT_DIMENSION];
-		/*
 		for (int k = 0; k < POINT_DIMENSION; ++k)
 		{
 			point_sum.coords[k] = 0;
 		}
 		int sum_of_lengths = 0;
-		for (int k = 0; k < POINT_DIMENSION; ++k)
-		{
-			point_sum.coords[k] += centroids[i].sum.coords[k];
+
+		for (int j = 0; j < THREADS; j++) {
+			for (int k = 0; k < POINT_DIMENSION; ++k)
+			{
+				point_sum.coords[k] += centroids[i].sum[j].coords[k];
+			}
+			//point_sum.coords[k] = centroids[i].sum.coords[k];
+			sum_of_lengths += centroids[i].partition_lengths[j];
 		}
-		*/
-		point_sum.coords[k] = centroids[i].sum.coords[k];
-		int sum_of_lengths = centroids[i].partition_lengths;
 
 		double point_sum_square_norm = 0;
 		for (int j = 0; j < POINT_DIMENSION; ++j)
@@ -196,15 +194,15 @@ void updateCenters()
 		{
 			max_var = variance;
 		}
-		// printf("iter %d) centroid %d (%f:%f) with %d elements\n", iter, i, centroids[i].p.coords[0], centroids[i].p.coords[1], sum_of_lengths);
+		#ifdef PRINT_CENTERS
+		printf("centroid %d (%f:%f) with %d elements\n", i, centroids[i].p.coords[0], centroids[i].p.coords[1], sum_of_lengths);
+		#endif
 	}
 	CONVERGED = (max_var < STOPPING_VARIANCE);
 	//CONVERGED = true;
 }
 
-vector<double> distance_calls;
-
-void performRounds(dim3 grid, dim3 block)
+void performRounds(dim3 grid, dim3 block, int partition_size)
 {
 	int round = 0;
 	while (!CONVERGED)
@@ -213,11 +211,18 @@ void performRounds(dim3 grid, dim3 block)
 		// {
 		// 	threads[thread_i] = thread(worker, first_points[thread_i], partition_lengths[thread_i], thread_i);
 		// }
-		cudaMemcpy(d_centroids, centroids, NUM_CLUSTERS * sizeof(Centroid), cudaMemcpyHostToDevice);
+		//cudaMemcpy(d_centroids, centroids, NUM_CLUSTERS * sizeof(Centroid), cudaMemcpyHostToDevice);
+		for (int i = 0; i < NUM_CLUSTERS; ++i) {
+			cudaMemcpy(&d_centroids[i].p, &centroids[i].p, sizeof(Point), cudaMemcpyHostToDevice);
+		}
 		//for (int i = 0; i < DATASET_SIZE; i+=CHUNK_SIZE)
-		worker <<< grid, block>>> (d_points, d_centroids, DATASET_SIZE, NUM_CLUSTERS);
+		worker <<< grid, block>>> (d_points, d_centroids, DATASET_SIZE, NUM_CLUSTERS, partition_size);
 		cudaDeviceSynchronize();
-		cudaMemcpy(centroids, d_centroids, NUM_CLUSTERS * sizeof(Centroid), cudaMemcpyDeviceToHost);
+		//cudaMemcpy(centroids, d_centroids, NUM_CLUSTERS * sizeof(Centroid), cudaMemcpyDeviceToHost);
+		for (int i = 0; i < NUM_CLUSTERS; ++i) {
+			cudaMemcpy(&centroids[i].sum, &d_centroids[i].sum, THREADS * sizeof(Point), cudaMemcpyDeviceToHost);
+			cudaMemcpy(&centroids[i].partition_lengths, &d_centroids[i].partition_lengths, THREADS * sizeof(int), cudaMemcpyDeviceToHost);
+		}
 		/*
 		int count = 0;
 		for (int i = 0; i < NUM_CLUSTERS; ++i) {
@@ -232,27 +237,45 @@ void performRounds(dim3 grid, dim3 block)
 	// printf("took %d rounds\n", round);
 }
 
-void generateRandomCentroids()
-{
+void setupRandomCentroids() {
+
 	srand(69420);
 	for (int i = 0; i < NUM_CLUSTERS; ++i)
 	{
 		int random_index = rand() % (DATASET_SIZE);
-		Centroid* c = new Centroid;
-		//c->p = *new Point;
-		//c->p.coords = new double[POINT_DIMENSION];
 		for (int coord = 0; coord < POINT_DIMENSION; coord++)
 		{
-			c->p.coords[coord] = points[random_index].p.coords[coord];
+			centroids[i].p.coords[coord] = points[random_index].p.coords[coord];
 		}
-		//c->sum = *new Point;
-		//c->partition_lengths = *new int;
-			//c->sum[j].coords = new double[POINT_DIMENSION];
-		for (int k = 0; k < POINT_DIMENSION; ++k)
-		{
-			c->sum.coords[k] = 0;
+		for (int j = 0; j < THREADS; j++) {
+			for (int k = 0; k < POINT_DIMENSION; ++k)
+			{
+				centroids[i].sum[j].coords[k] = 0;
+			}
+			centroids[i].partition_lengths[j] = 0;
 		}
-		c->partition_lengths = 0;
+
+	}
+}
+
+void generateRandomCentroids()
+{
+	for (int i = 0; i < NUM_CLUSTERS; ++i)
+	{
+		Centroid* c = new Centroid;
+		c->p = *new Point;
+		//c->p.coords = new double[POINT_DIMENSION];
+		
+		c->sum = new Point[THREADS];
+		c->partition_lengths = new int[THREADS];
+		//c->sum[j].coords = new double[POINT_DIMENSION];
+		for (int j = 0; j < THREADS; j++) {
+			for (int k = 0; k < POINT_DIMENSION; ++k)
+			{
+				c->sum[j].coords[k] = 0;
+			}
+			c->partition_lengths[j] = 0;
+		}
 		centroids[i] = *c;
 	}
 }
@@ -283,23 +306,52 @@ void deserializePoints(char* intput_file)
 
 int main(int argc, char** argv)
 {
-	if (argc < 3)
+	if (argc < 4)
 	{
-		printf("[USAGE]: %s dataset.serialized num_clusters\n", argv[0]);
+		printf("[USAGE]: %s dataset.serialized num_clusters num_threads\n", argv[0]);
 		exit(1);
 	}
 	NUM_CLUSTERS = stoi(argv[2]);
 	centroids = new Centroid[NUM_CLUSTERS];
 
-	deserializePoints(argv[1]);
-	dim3 grid((DATASET_SIZE + THREADS_PER_BLOCK - 1 / THREADS_PER_BLOCK), 1, 1);
+	THREADS = stoi(argv[3]);
+	int num_blocks = THREADS / THREADS_PER_BLOCK;
+	if (THREADS % THREADS_PER_BLOCK > 0)
+		num_blocks++;
+
+	dim3 grid(num_blocks, 1, 1);
 	dim3 block(THREADS_PER_BLOCK, 1, 1);
+
+	deserializePoints(argv[1]);
+
+	int partition_size;
+	if (DATASET_SIZE % THREADS == 0) {
+		partition_size = DATASET_SIZE / THREADS;
+	}
+	else {
+		partition_size = DATASET_SIZE / (THREADS - 1);
+	}
+	//dim3 grid((DATASET_SIZE + THREADS_PER_BLOCK - 1 / THREADS_PER_BLOCK), 1, 1);
 	// device copy
+	//Centroid* my_obj = new Centroid[NUM_CLUSTERS];
+	//my_obj.sum = new Point[THREADS];
+	//my_obj.partition_lengths = new int[THREADS];
+	generateRandomCentroids();
 	cudaMalloc((void**)&d_points, DATASET_SIZE*sizeof(ClassedPoint));
 	cudaMalloc((void**)&d_centroids, NUM_CLUSTERS*sizeof(Centroid));
+	Point* tmp_sum;
+	int* tmp_partition_lengths;
+	for (int i = 0; i < NUM_CLUSTERS; ++i) {
+		//cudaMalloc(&tmp_sum, THREADS * sizeof(Point));
+		//cudaMemcpy(&d_centroids[i].sum, tmp_sum, sizeof(Point*), cudaMemcpyHostToDevice);
+		cudaMalloc((void**) & d_centroids[i].sum, THREADS * sizeof(Point));
+		//cudaMalloc(&tmp_partition_lengths, THREADS * sizeof(int));
+		//cudaMemcpy(&d_centroids[i].partition_lengths, tmp_partition_lengths, sizeof(int*), cudaMemcpyHostToDevice);
+		cudaMalloc((void**) &d_centroids[i].partition_lengths, THREADS * sizeof(int));
+	}
 	for (int rep = 0; rep < 1; rep++)
 	{
-		generateRandomCentroids();
+		setupRandomCentroids();
 		for (int i = 0; i < DATASET_SIZE; i++)
 		{
 			points[i].k = -1;
@@ -308,10 +360,12 @@ int main(int argc, char** argv)
 		CONVERGED = false;
 		// copy from host to device
 		clock_t tic = clock();
+		// must copy to device at each repetition
 		cudaMemcpy(d_points, points, DATASET_SIZE * sizeof(ClassedPoint), cudaMemcpyHostToDevice);
-		performRounds(grid, block);
+		clock_t intermidiate_clock = clock();
+		performRounds(grid, block, partition_size);
 		clock_t toc = clock();
-		printf("%f\n", (double) (toc-tic)/CLOCKS_PER_SEC);
+		printf("%f %f\n", (double) (toc-tic)/CLOCKS_PER_SEC, (double) (toc-intermidiate_clock)/CLOCKS_PER_SEC);
 		/*
 		for (int i = 0; i < NUM_CLUSTERS; ++i) {
 			printf("(%f %f)\n", centroids[i].p.coords[0], centroids[i].p.coords[1]);
@@ -325,7 +379,7 @@ int main(int argc, char** argv)
 		printf("%f\n", diff.count());
 		*/
 
-		/*
+		#ifdef PRINT_CENTERS
 		for (int i = 0; i < NUM_CLUSTERS; i++) {
 			printf("Centro %d : ", i);
 			for (int j = 0; j < POINT_DIMENSION; j++) {
@@ -333,18 +387,11 @@ int main(int argc, char** argv)
 			}
 			printf("\n");
 		}
-		*/
+		#endif
 
 	}
 	cudaFree(d_points);
 	cudaFree(d_centroids);
-	/*
-	double mean = 0;
-	for (int i = 0; i < distance_calls.size(); ++i) {
-		mean += distance_calls.at(i);
-	}
-	mean /= distance_calls.size();
-	//printf("%f", mean);
-	*/
+	
 	return 0;
 }
