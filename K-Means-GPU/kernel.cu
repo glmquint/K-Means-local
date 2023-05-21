@@ -27,7 +27,7 @@ bool CONVERGED = false;
 int POINT_DIMENSION = 2;
 int NUM_CLUSTERS = 2;
 int DATASET_SIZE;
-int THREADS_PER_BLOCK = 623;
+int THREADS_PER_BLOCK = 1024;
 
 struct Point_s
 {
