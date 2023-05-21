@@ -106,7 +106,7 @@ __device__ double atomicAddDouble(double *address, double val)
 #endif
 
 __global__ void worker(ClassedPoint *d_point, Point *d_centr, Point* d_centroids_sums, int * d_centroids_plengths, int dataset_size, 
-int num_clusters, int partition_size)
+int num_clusters, int partition_size, int num_threads)
 {
 	double dist = 0;
 	int best_k;
@@ -157,14 +157,14 @@ int num_clusters, int partition_size)
 	{
 		for (int j = 0; j < 2; ++j)
 		{
-			d_centroids_sums[index].coords[j] = 10; //sum[i].coords[j];
+			d_centroids_sums[i * num_threads + index].coords[j] = sum[i].coords[j];
 		}
-		d_centroids_plengths[index] = points_per_centroid[i];
+		d_centroids_plengths[i*num_threads + index] = points_per_centroid[i];
 	}
-	printf("%d} %f\n", index, d_centroids_sums[index].coords[0]);
+	printf("%d} %f\n", index, d_centroids_sums[0 + index].coords[0]);
 	// ok????
-	delete sum;
-	delete points_per_centroid;
+	delete[] sum;
+	delete[] points_per_centroid;
 }
 
 void updateCenters()
@@ -228,13 +228,13 @@ void performRounds(dim3 grid, dim3 block, int partition_size)
 		for (int i = 0; i < NUM_CLUSTERS; ++i) {
 			cudaMemcpy(&d_centroids[i], &centroids[i], sizeof(Point), cudaMemcpyHostToDevice);
 		}
-		worker<<<grid, block>>>(d_points, d_centroids, d_centroids_sums, d_centroids_plengths, DATASET_SIZE, NUM_CLUSTERS, partition_size);
+		worker<<<grid, block>>>(d_points, d_centroids, d_centroids_sums, d_centroids_plengths, DATASET_SIZE, NUM_CLUSTERS, partition_size, THREADS);
 		cudaDeviceSynchronize();
 		
 		for (int i = 0; i < NUM_CLUSTERS; ++i)
 		{
-			cudaMemcpy(&centroids[i].sum, &d_centroids_sums[i], THREADS * sizeof(Point), cudaMemcpyDeviceToHost);
-			cudaMemcpy(&centroids[i].partition_lengths, &d_centroids_plengths[i], THREADS * sizeof(int), cudaMemcpyDeviceToHost);
+			cudaMemcpy(&centroids[i].sum, &d_centroids_sums[i*THREADS], THREADS * sizeof(Point), cudaMemcpyDeviceToHost);
+			cudaMemcpy(&centroids[i].partition_lengths, &d_centroids_plengths[i*THREADS], THREADS * sizeof(int), cudaMemcpyDeviceToHost);
 		}
 		/*
 		int count = 0;
@@ -347,6 +347,7 @@ int main(int argc, char **argv)
 	dim3 grid(num_blocks, 1, 1);
 	dim3 block(THREADS_PER_BLOCK, 1, 1);
 	
+	cudaMalloc((void **) &d_points, DATASET_SIZE * sizeof(Point));
 	cudaMalloc((void **) &d_centroids, NUM_CLUSTERS * sizeof(Point));
 	cudaMalloc((void **) &d_centroids_sums, NUM_CLUSTERS * THREADS * sizeof(Point));
 	cudaMalloc((void **) &d_centroids_plengths, NUM_CLUSTERS * THREADS * sizeof(int));
