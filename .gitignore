@@ -368,6 +368,7 @@ FodyWeavers.xsd
 
 #altro
 K-means_project
+kernel
 K-means_project.dSYM
 vtune
 launch-vtune.sh
