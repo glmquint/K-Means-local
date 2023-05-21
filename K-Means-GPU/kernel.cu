@@ -27,7 +27,7 @@ bool CONVERGED = false;
 int POINT_DIMENSION = 2;
 int NUM_CLUSTERS = 2;
 int DATASET_SIZE;
-int THREADS_PER_BLOCK = 1024;
+int THREADS_PER_BLOCK = 100;
 
 struct Point_s
 {
@@ -87,20 +87,15 @@ double distanceCPU(Point &a, Point &b)
 #if __CUDA_ARCH__ < 600
 __device__ double atomicAddDouble(double *address, double val)
 {
-	unsigned long long int *address_as_ull =
-		(unsigned long long int *)address;
+	unsigned long long int *address_as_ull = (unsigned long long int *)address;
 	unsigned long long int old = *address_as_ull, assumed;
-
 	do
 	{
 		assumed = old;
-		old = atomicCAS(address_as_ull, assumed,
-						__double_as_longlong(val +
-											 __longlong_as_double(assumed)));
+		old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val + __longlong_as_double(assumed)));
 
 		// Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
 	} while (assumed != old);
-
 	return __longlong_as_double(old);
 }
 #endif
@@ -152,16 +147,16 @@ int num_clusters, int partition_size, int num_threads)
 			points_per_centroid[best_k]++;
 		}
 	}
-	printf("%d) %f\n", index, sum[0].coords[0]);
+	//printf("%d) %f\n", index, sum[0].coords[0]);
 	for (int i = 0; i < num_clusters; ++i)
 	{
 		for (int j = 0; j < 2; ++j)
 		{
 			d_centroids_sums[i * num_threads + index].coords[j] = sum[i].coords[j];
 		}
-		d_centroids_plengths[i*num_threads + index] = points_per_centroid[i];
+		d_centroids_plengths[i * num_threads + index] = points_per_centroid[i];
 	}
-	printf("%d} %f\n", index, d_centroids_sums[0 + index].coords[0]);
+	//printf("%d} %f\n", index, d_centroids_sums[0 + index].coords[0]);
 	// ok????
 	delete[] sum;
 	delete[] points_per_centroid;
@@ -225,16 +220,20 @@ void performRounds(dim3 grid, dim3 block, int partition_size)
 		// 	threads[thread_i] = thread(worker, first_points[thread_i], partition_lengths[thread_i], thread_i);
 		// }
 		// cudaMemcpy(d_centroids, centroids, NUM_CLUSTERS * sizeof(Centroid), cudaMemcpyHostToDevice);
+		cudaError_t cerr;
 		for (int i = 0; i < NUM_CLUSTERS; ++i) {
-			cudaMemcpy(&d_centroids[i], &centroids[i], sizeof(Point), cudaMemcpyHostToDevice);
+			cerr = cudaMemcpy(&d_centroids[i], &centroids[i], sizeof(Point), cudaMemcpyHostToDevice);
 		}
+		assert(cerr == cudaSuccess);
 		worker<<<grid, block>>>(d_points, d_centroids, d_centroids_sums, d_centroids_plengths, DATASET_SIZE, NUM_CLUSTERS, partition_size, THREADS);
 		cudaDeviceSynchronize();
 		
 		for (int i = 0; i < NUM_CLUSTERS; ++i)
 		{
-			cudaMemcpy(&centroids[i].sum, &d_centroids_sums[i*THREADS], THREADS * sizeof(Point), cudaMemcpyDeviceToHost);
-			cudaMemcpy(&centroids[i].partition_lengths, &d_centroids_plengths[i*THREADS], THREADS * sizeof(int), cudaMemcpyDeviceToHost);
+			cerr = cudaMemcpy(centroids[i].sum, &d_centroids_sums[i*THREADS], THREADS * sizeof(Point), cudaMemcpyDeviceToHost);
+			assert(cerr == cudaSuccess);
+			cerr = cudaMemcpy(centroids[i].partition_lengths, &d_centroids_plengths[i*THREADS], THREADS * sizeof(int), cudaMemcpyDeviceToHost);
+			assert(cerr == cudaSuccess);
 		}
 		/*
 		int count = 0;
@@ -347,7 +346,7 @@ int main(int argc, char **argv)
 	dim3 grid(num_blocks, 1, 1);
 	dim3 block(THREADS_PER_BLOCK, 1, 1);
 	
-	cudaMalloc((void **) &d_points, DATASET_SIZE * sizeof(Point));
+	cudaMalloc((void **) &d_points, DATASET_SIZE * sizeof(ClassedPoint));
 	cudaMalloc((void **) &d_centroids, NUM_CLUSTERS * sizeof(Point));
 	cudaMalloc((void **) &d_centroids_sums, NUM_CLUSTERS * THREADS * sizeof(Point));
 	cudaMalloc((void **) &d_centroids_plengths, NUM_CLUSTERS * THREADS * sizeof(int));
@@ -364,7 +363,9 @@ int main(int argc, char **argv)
 		// copy from host to device
 		clock_t tic = clock();
 		// must copy to device at each repetition
-		cudaMemcpy(d_points, points, DATASET_SIZE * sizeof(ClassedPoint), cudaMemcpyHostToDevice);
+		cudaError_t cerr;
+		cerr = cudaMemcpy(d_points, points, DATASET_SIZE * sizeof(ClassedPoint), cudaMemcpyHostToDevice);
+		assert(cerr == cudaSuccess);
 		clock_t intermidiate_clock = clock();
 		performRounds(grid, block, partition_size);
 		clock_t toc = clock();
