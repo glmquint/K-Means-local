@@ -27,7 +27,7 @@ bool CONVERGED = false;
 int POINT_DIMENSION = 2;
 int NUM_CLUSTERS = 2;
 int DATASET_SIZE;
-int THREADS_PER_BLOCK = 100;
+int THREADS_PER_BLOCK = 623;
 
 struct Point_s
 {
@@ -131,13 +131,15 @@ int num_clusters, int partition_size, int num_threads)
 			for (int i = 0; i < num_clusters; ++i)
 			{
 				dist = distance(d_point[partition_elem].p, d_centr[i]);
+				/*
 				if (dist < min_d)
 				{
 					min_d = dist;
 					best_k = i;
 				}
-				// best_k = j * (dist < min_d) + best_k * (dist >= min_d);
-				// min_d = dist * (dist < min_d) + min_d * (dist >= min_d);
+				*/
+				best_k = i * (dist < min_d) + best_k * (dist >= min_d);
+				min_d = dist * (dist < min_d) + min_d * (dist >= min_d);
 			}
 			d_point[partition_elem].k = best_k;
 			for (int i = 0; i < 2; ++i)
