@@ -330,7 +330,7 @@ int main(int argc, char **argv)
 	generateRandomCentroids();
 
 	int num_blocks = THREADS / THREADS_PER_BLOCK;
-	if (THREADS % THREADS_PER_BLOCK > 0)
+	if (THREADS % THREADS_PER_BLOCK)
 		num_blocks++;
 
 	int partition_size;
