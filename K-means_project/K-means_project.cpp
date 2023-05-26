@@ -61,6 +61,7 @@ double distance(Point& a, Point& b)
 	return sum_of_squares;
 }
 
+// this creates cache sharing
 void aggregatePoints(ClassedPoint* first_point, int partition_length, int thread_num)
 {
 	for (int i = 0; i < NUM_CLUSTERS; ++i)
