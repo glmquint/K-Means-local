@@ -16,7 +16,7 @@
 #include <time.h>
 #include <cassert>
 
-#define PRINT_CENTERS
+#define PRINT_CENTERS_OFF
 
 using namespace std;
 clock_t tic, toc;
