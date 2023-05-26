@@ -233,8 +233,8 @@ void performRounds(dim3 grid, dim3 block, int partition_size)
 		
 		for (int i = 0; i < NUM_CLUSTERS; ++i)
 		{
-			cudaMemcpy(&centroids[i].sum, &d_centroids_sums[i*THREADS], THREADS * sizeof(Point), cudaMemcpyDeviceToHost);
-			cudaMemcpy(&centroids[i].partition_lengths, &d_centroids_plengths[i*THREADS], THREADS * sizeof(int), cudaMemcpyDeviceToHost);
+			cudaMemcpy(centroids[i].sum, &d_centroids_sums[i*THREADS], THREADS * sizeof(Point), cudaMemcpyDeviceToHost);
+			cudaMemcpy(centroids[i].partition_lengths, &d_centroids_plengths[i*THREADS], THREADS * sizeof(int), cudaMemcpyDeviceToHost);
 		}
 		/*
 		int count = 0;
@@ -347,7 +347,7 @@ int main(int argc, char **argv)
 	dim3 grid(num_blocks, 1, 1);
 	dim3 block(THREADS_PER_BLOCK, 1, 1);
 	
-	cudaMalloc((void **) &d_points, DATASET_SIZE * sizeof(Point));
+	cudaMalloc((void **) &d_points, DATASET_SIZE * sizeof(ClassedPoint));
 	cudaMalloc((void **) &d_centroids, NUM_CLUSTERS * sizeof(Point));
 	cudaMalloc((void **) &d_centroids_sums, NUM_CLUSTERS * THREADS * sizeof(Point));
 	cudaMalloc((void **) &d_centroids_plengths, NUM_CLUSTERS * THREADS * sizeof(int));
