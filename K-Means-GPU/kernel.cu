@@ -208,6 +208,7 @@ void updateCenters()
 		printf("centroid %d (%f:%f) with %d elements\n", i, centroids[i].p.coords[0], centroids[i].p.coords[1], sum_of_lengths);
 #endif
 	}
+	printf("==================================================\n");
 	CONVERGED = (max_var < STOPPING_VARIANCE);
 	// CONVERGED = true;
 }
@@ -371,7 +372,7 @@ int main(int argc, char **argv)
 		clock_t intermidiate_clock = clock();
 		performRounds(grid, block, partition_size);
 		clock_t toc = clock();
-		printf("%f %f\n", (double)(toc - tic) / CLOCKS_PER_SEC, (double)(toc - intermidiate_clock) / CLOCKS_PER_SEC);
+		printf("total time: %f (only algorithmic: %f)\n", (double)(toc - tic) / CLOCKS_PER_SEC, (double)(toc - intermidiate_clock) / CLOCKS_PER_SEC);
 		/*
 		for (int i = 0; i < NUM_CLUSTERS; ++i) {
 			printf("(%f %f)\n", centroids[i].p.coords[0], centroids[i].p.coords[1]);
@@ -386,6 +387,7 @@ int main(int argc, char **argv)
 		*/
 
 #ifdef PRINT_CENTERS
+		printf("/------------begin centroids-------------\\\n");
 		for (int i = 0; i < NUM_CLUSTERS; i++)
 		{
 			printf("Centro %d : ", i);
@@ -395,6 +397,7 @@ int main(int argc, char **argv)
 			}
 			printf("\n");
 		}
+		printf("\\------------end centroids---------------/\n");
 #endif
 	}
 	cudaFree(d_points);
