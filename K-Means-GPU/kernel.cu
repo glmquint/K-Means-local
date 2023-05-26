@@ -208,7 +208,9 @@ void updateCenters()
 		printf("centroid %d (%f:%f) with %d elements\n", i, centroids[i].p.coords[0], centroids[i].p.coords[1], sum_of_lengths);
 #endif
 	}
+#ifdef PRINT_CENTERS
 	printf("==================================================\n");
+#endif
 	CONVERGED = (max_var < STOPPING_VARIANCE);
 	// CONVERGED = true;
 }
