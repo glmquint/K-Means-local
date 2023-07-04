@@ -16,7 +16,7 @@
 #include <time.h>
 #include <cassert>
 
-#define PRINT_CENTERS_OFF
+#define PRINT_CENTERS
 
 using namespace std;
 clock_t tic, toc;
@@ -404,6 +404,8 @@ int main(int argc, char **argv)
 	}
 	cudaFree(d_points);
 	cudaFree(d_centroids);
+	cudaFree(d_centroids_sums);
+	cudaFree(d_centroids_plengths);
 
 	return 0;
 }
