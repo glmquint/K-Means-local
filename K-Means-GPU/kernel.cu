@@ -16,7 +16,7 @@
 #include <time.h>
 #include <cassert>
 
-#define PRINT_CENTERS
+#define PRINT_CENTERS_OFF
 
 using namespace std;
 clock_t tic, toc;
@@ -27,7 +27,7 @@ bool CONVERGED = false;
 int POINT_DIMENSION = 2;
 int NUM_CLUSTERS = 2;
 int DATASET_SIZE;
-int THREADS_PER_BLOCK = 1024;
+int THREADS_PER_BLOCK;
 
 struct Point_s
 {
@@ -321,15 +321,16 @@ void deserializePoints(char *intput_file)
 
 int main(int argc, char **argv)
 {
-	if (argc < 4)
+	if (argc < 5)
 	{
-		printf("[USAGE]: %s dataset.serialized num_clusters num_threads\n", argv[0]);
+		printf("[USAGE]: %s dataset.serialized num_clusters num_threads threads_per_block\n", argv[0]);
 		exit(1);
 	}
 	NUM_CLUSTERS = stoi(argv[2]);
 	centroids = new Centroid[NUM_CLUSTERS];
 
 	THREADS = stoi(argv[3]);
+	THREADS_PER_BLOCK = stoi(argv[4]);
 
 	deserializePoints(argv[1]);
 	generateRandomCentroids();
@@ -356,7 +357,7 @@ int main(int argc, char **argv)
 	cudaMalloc((void **) &d_centroids_sums, NUM_CLUSTERS * THREADS * sizeof(Point));
 	cudaMalloc((void **) &d_centroids_plengths, NUM_CLUSTERS * THREADS * sizeof(int));
 
-	for (int rep = 0; rep < 1; rep++)
+	for (int rep = 0; rep < 30; rep++)
 	{
 		setupRandomCentroids();
 		for (int i = 0; i < DATASET_SIZE; i++)
@@ -374,7 +375,11 @@ int main(int argc, char **argv)
 		clock_t intermidiate_clock = clock();
 		performRounds(grid, block, partition_size);
 		clock_t toc = clock();
+#ifdef PRINT_CENTERS
 		printf("total time: %f (only algorithmic: %f)\n", (double)(toc - tic) / CLOCKS_PER_SEC, (double)(toc - intermidiate_clock) / CLOCKS_PER_SEC);
+#else
+		printf("%f\n", (double)(toc - intermidiate_clock) / CLOCKS_PER_SEC);
+#endif
 		/*
 		for (int i = 0; i < NUM_CLUSTERS; ++i) {
 			printf("(%f %f)\n", centroids[i].p.coords[0], centroids[i].p.coords[1]);
