@@ -1,0 +1,192 @@
+GPU explorations
+
+==================1024 th/blocco==================
+
+32
+
+
+128
+total time: 2.458000 (only algorithmic: 2.385000)
+
+
+1024
+total time: 1.378000 (only algorithmic: 1.316000)
+
+
+817
+total time: 1.418000 (only algorithmic: 1.348000)
+
+2048
+total time: 0.817000 (only algorithmic: 0.751000)
+
+
+4096
+total time: 0.655000 (only algorithmic: 0.585000)
+
+
+8192
+total time: 0.737000 (only algorithmic: 0.670000)
+
+
+16384
+total time: 0.807000 (only algorithmic: 0.741000)
+
+
+32768
+total time: 0.984000 (only algorithmic: 0.926000)
+
+=======================128 th===========================
+
+1024
+total time: 2.475000 (only algorithmic: 2.402000)
+
+
+512
+total time: 2.485000 (only algorithmic: 2.391000)
+
+
+64
+total time: 2.448000 (only algorithmic: 2.355000)
+
+
+32
+total time: 2.301000 (only algorithmic: 2.205000)
+
+
+16
+total time: 2.244000 (only algorithmic: 2.160000)
+
+
+1
+total time: 6.419000 (only algorithmic: 6.333000)
+
+=======================256 th===========================
+
+64
+total time: 1.307000 (only algorithmic: 1.234000)
+
+128
+total time: 1.377000 (only algorithmic: 1.250000)
+
+256
+total time: 1.826000 (only algorithmic: 1.713000)
+
+512
+total time: 1.776000 (only algorithmic: 1.677000)
+
+1024
+total time: 1.796000 (only algorithmic: 1.682000)
+
+=======================512 th===========================
+
+64
+total time: 0.818000 (only algorithmic: 0.707000)
+
+128
+total time: 0.839000 (only algorithmic: 0.715000)
+
+256
+total time: 1.036000 (only algorithmic: 0.930000)
+
+512
+total time: 1.460000 (only algorithmic: 1.366000)
+
+1024
+total time: 1.471000 (only algorithmic: 1.368000)
+
+=======================1024 th===========================
+
+1
+total time: 5.980000 (only algorithmic: 5.891000)
+
+
+64
+total time: 0.736000 (only algorithmic: 0.627000)
+
+
+128
+total time: 0.685000 (only algorithmic: 0.598000)
+
+
+256
+total time: 0.678000 (only algorithmic: 0.586000)
+
+
+512
+total time: 0.852000 (only algorithmic: 0.763000)
+
+
+1024
+total time: 1.447000 (only algorithmic: 1.329000)
+
+=======================2048 th===========================
+
+64
+total time: 0.712000 (only algorithmic: 0.608000)
+
+128
+total time: 0.723000 (only algorithmic: 0.630000)
+
+256
+total time: 0.702000 (only algorithmic: 0.587000)
+
+512
+total time: 0.694000 (only algorithmic: 0.591000)
+
+1024
+total time: 0.869000 (only algorithmic: 0.770000)
+
+=======================4096 th===========================
+
+32
+total time: 0.662000 (only algorithmic: 0.596000)
+
+
+64
+total time: 0.666000 (only algorithmic: 0.601000)
+
+
+128
+total time: 0.676000 (only algorithmic: 0.597000)
+
+256
+total time: 0.713000 (only algorithmic: 0.616000)
+
+512
+total time: 0.680000 (only algorithmic: 0.611000)
+
+
+1024
+total time: 0.697000 (only algorithmic: 0.603000)
+
+
+// con 4096 threads, cambiare il numero di threads per blocco
+// non influisce in maniera importante
+
+=======================8192 th===========================
+
+32
+total time: 0.661000 (only algorithmic: 0.591000)
+
+
+64
+total time: 0.944000 (only algorithmic: 0.872000)
+
+
+128
+total time: 0.937000 (only algorithmic: 0.861000)
+
+256
+total time: 0.924000 (only algorithmic: 0.839000)
+
+512
+total time: 0.903000 (only algorithmic: 0.831000)
+
+
+1024
+total time: 0.741000 (only algorithmic: 0.677000)
+
+
+// a parte il caso strano con 32 th/blocco, diminuire
+// il numero di th/blocco peggiora le prestazioni
+
