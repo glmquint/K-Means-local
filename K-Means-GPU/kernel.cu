@@ -17,6 +17,7 @@
 #include <cassert>
 
 #define PRINT_CENTERS_OFF
+#define PREALLOC_OPTIMIZE
 
 using namespace std;
 clock_t tic, toc;
@@ -56,8 +57,10 @@ ClassedPoint *d_points;
 Point *d_centroids;
 Point *d_centroids_sums;
 int *d_centroids_plengths;
+#ifdef PREALLOC_OPTIMIZE
 Point* d_sum;
 int* d_points_per_centroid;
+#endif // PREALLOC_OPTIMIZE
 
 // distance squared between 2 points
 // root square is not necessarry for distance comparison
@@ -103,7 +106,11 @@ __device__ double atomicAddDouble(double *address, double val)
 #endif
 
 __global__ void worker(ClassedPoint *d_point, Point *d_centr, Point* d_centroids_sums, int * d_centroids_plengths, int dataset_size, 
-int num_clusters, int partition_size, int num_threads, Point* d_sum, int* d_points_per_centroid)
+int num_clusters, int partition_size, int num_threads
+#ifdef PREALLOC_OPTIMIZE
+, Point* d_sum, int* d_points_per_centroid
+#endif // PREALLOC_OPTIMIZE
+)
 {
 	double dist = 0;
 	int best_k;
@@ -111,10 +118,14 @@ int num_clusters, int partition_size, int num_threads, Point* d_sum, int* d_poin
 	Point *sum;
 	int *points_per_centroid;
 
-	// sum = new Point[num_clusters];
+#ifdef PREALLOC_OPTIMIZE
 	sum = &d_sum[(blockDim.x * blockIdx.x + threadIdx.x)*num_clusters];
-	// points_per_centroid = new int[num_clusters];
 	points_per_centroid = &d_points_per_centroid[(blockDim.x * blockIdx.x + threadIdx.x)*num_clusters];
+#else
+	sum = new Point[num_clusters];
+	points_per_centroid = new int[num_clusters];
+#endif // PREALLOC_OPTIMIZE
+
 	for (int j = 0; j < num_clusters; ++j)
 	{
 		for (int k = 0; k < 2; ++k)
@@ -164,8 +175,11 @@ int num_clusters, int partition_size, int num_threads, Point* d_sum, int* d_poin
 	}
 	//printf("%d} %f\n", index, d_centroids_sums[0 + index].coords[0]);
 	// ok????
-	// delete[] sum;
-	// delete[] points_per_centroid;
+#ifndef PREALLOC_OPTIMIZE
+	delete[] sum;
+	delete[] points_per_centroid;
+#endif // !PREALLOC_OPTIMIZE
+
 }
 
 void updateCenters()
@@ -219,7 +233,7 @@ void updateCenters()
 	// CONVERGED = true;
 }
 
-void performRounds(dim3 grid, dim3 block, int partition_size, Point* d_sum, int* d_points_per_centroid)
+void performRounds(dim3 grid, dim3 block, int partition_size)
 {
 	int round = 0;
 	while (!CONVERGED)
@@ -234,7 +248,11 @@ void performRounds(dim3 grid, dim3 block, int partition_size, Point* d_sum, int*
 			cerr = cudaMemcpy(&d_centroids[i], &centroids[i], sizeof(Point), cudaMemcpyHostToDevice);
 		}
 		assert(cerr == cudaSuccess);
-		worker<<<grid, block>>>(d_points, d_centroids, d_centroids_sums, d_centroids_plengths, DATASET_SIZE, NUM_CLUSTERS, partition_size, THREADS, d_sum, d_points_per_centroid);
+		worker<<<grid, block>>>(d_points, d_centroids, d_centroids_sums, d_centroids_plengths, DATASET_SIZE, NUM_CLUSTERS, partition_size, THREADS
+#ifdef PREALLOC_OPTIMIZE
+		, d_sum, d_points_per_centroid
+#endif // PREALLOC_OPTIMIZE
+		);
 		cudaDeviceSynchronize();
 		
 		for (int i = 0; i < NUM_CLUSTERS; ++i)
@@ -360,8 +378,11 @@ int main(int argc, char **argv)
 	cudaMalloc((void **) &d_centroids, NUM_CLUSTERS * sizeof(Point));
 	cudaMalloc((void **) &d_centroids_sums, NUM_CLUSTERS * THREADS * sizeof(Point));
 	cudaMalloc((void **) &d_centroids_plengths, NUM_CLUSTERS * THREADS * sizeof(int));
+
+#ifdef PREALLOC_OPTIMIZE
 	cudaMalloc((void **) &d_sum, NUM_CLUSTERS * THREADS * sizeof(Point));
 	cudaMalloc((void **) &d_points_per_centroid, NUM_CLUSTERS * THREADS * sizeof(int));
+#endif // PREALLOC_OPTIMIZE
 
 	// must copy to device at each repetition
 	// do it once for every repetition
@@ -380,7 +401,7 @@ int main(int argc, char **argv)
 		// copy from host to device
 		clock_t tic = clock();
 		clock_t intermidiate_clock = clock();
-		performRounds(grid, block, partition_size, d_sum, d_points_per_centroid);
+		performRounds(grid, block, partition_size);
 		clock_t toc = clock();
 #ifdef PRINT_CENTERS
 		printf("total time: %f (only algorithmic: %f)\n", (double)(toc - tic) / CLOCKS_PER_SEC, (double)(toc - intermidiate_clock) / CLOCKS_PER_SEC);
