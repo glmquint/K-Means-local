@@ -16,7 +16,7 @@
 #include <time.h>
 #include <cassert>
 
-#define PRINT_CENTERS
+#define PRINT_CENTERS_OFF
 
 using namespace std;
 clock_t tic, toc;
@@ -363,6 +363,11 @@ int main(int argc, char **argv)
 	cudaMalloc((void **) &d_sum, NUM_CLUSTERS * THREADS * sizeof(Point));
 	cudaMalloc((void **) &d_points_per_centroid, NUM_CLUSTERS * THREADS * sizeof(int));
 
+	// must copy to device at each repetition
+	// do it once for every repetition
+	cudaError_t cerr;
+	cerr = cudaMemcpy(d_points, points, DATASET_SIZE * sizeof(ClassedPoint), cudaMemcpyHostToDevice);
+	assert(cerr == cudaSuccess);
 	for (int rep = 0; rep < 30; rep++)
 	{
 		setupRandomCentroids();
@@ -374,10 +379,6 @@ int main(int argc, char **argv)
 		CONVERGED = false;
 		// copy from host to device
 		clock_t tic = clock();
-		// must copy to device at each repetition
-		cudaError_t cerr;
-		cerr = cudaMemcpy(d_points, points, DATASET_SIZE * sizeof(ClassedPoint), cudaMemcpyHostToDevice);
-		assert(cerr == cudaSuccess);
 		clock_t intermidiate_clock = clock();
 		performRounds(grid, block, partition_size, d_sum, d_points_per_centroid);
 		clock_t toc = clock();
