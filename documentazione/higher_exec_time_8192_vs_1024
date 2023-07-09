@@ -1,0 +1,5 @@
+# 10M 8192 threads 128 th/block -> higher exec time wrt 1024 threads
+- lower warp efficiency because of predicated threads (that become inactive)
+- secondo noi dipende da un elevato utilizzo di registri / thread
+	- aumentando il numero di threads, non tutti hanno sufficiente risorse per essere schedulati in parallelo
+	- con ottimizzazione di preallocazione in global memory (quindi minore utilizzo di reg / thread) si ha aumento di warp efficiency
