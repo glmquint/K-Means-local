@@ -16,7 +16,7 @@ using namespace std;
 clock_t tic, toc;
 
 int THREADS = 1;
-double STOPPING_VARIANCE = 0.05;
+double STOPPING_ERROR = 0.05;
 bool CONVERGED = false;
 int POINT_DIMENSION = 0;
 int NUM_CLUSTERS = 2;

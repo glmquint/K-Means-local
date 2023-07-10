@@ -22,12 +22,12 @@
 #define POINT_DIMENSION 2
 #define PRECISION float
 #define MAX_PRECISION 3.40282e+38
+#define STOPPING_ERROR 1e-2
 
 using namespace std;
 clock_t tic, toc;
 
 int THREADS = 1;
-PRECISION STOPPING_VARIANCE = 0.05;
 bool CONVERGED = false;
 int NUM_CLUSTERS = 5;
 int DATASET_SIZE;
@@ -70,15 +70,12 @@ struct KMeansData_s
 };
 typedef struct KMeansData_s KMeansData;
 
-__device__ PRECISION distance(PRECISION ax, PRECISION ay, PRECISION bx, PRECISION by)
-{
-	return (ax - bx) * (ax - bx) + (ay - by) * (ay - by);
-}
-
-PRECISION distanceCPU(PRECISION ax, PRECISION ay, PRECISION bx, PRECISION by)
-{
-	return (ax - bx) * (ax - bx) + (ay - by) * (ay - by);
-}
+#define distance(ax, ay, bx, by) (ax - bx) * (ax - bx) + (ay - by) * (ay - by)
+//
+//PRECISION distanceCPU(PRECISION ax, PRECISION ay, PRECISION bx, PRECISION by)
+//{
+//	return (ax - bx) * (ax - bx) + (ay - by) * (ay - by);
+//}
 
 __global__ void worker(KMeansData data, int datasetSize, int numClusters, int partitionSize, int numThreads)
 {
@@ -119,14 +116,12 @@ __global__ void worker(KMeansData data, int datasetSize, int numClusters, int pa
 								data.d_points_p_y[partition_elem], 
 								data.d_centroids_p_x[i], 
 								data.d_centroids_p_y[i]);
-				/*
 				if (dist < min_d) {
 					min_d = dist;
 					best_k = i;
 				}
-				*/
-				best_k = i * (dist < min_d) + best_k * (dist >= min_d);
-				min_d = dist * (dist < min_d) + min_d * (dist >= min_d);
+				//best_k = i * (dist < min_d) + best_k * (dist >= min_d);
+				//min_d = dist * (dist < min_d) + min_d * (dist >= min_d);
 			}
 			data.d_points_k[partition_elem] = best_k;
 			sum_x[best_k] += data.d_points_p_x[partition_elem];
@@ -152,9 +147,9 @@ __global__ void worker(KMeansData data, int datasetSize, int numClusters, int pa
 
 void updateCenters(KMeansData &data)
 {
-	double max_var = numeric_limits<double>::min();
-	PRECISION point_sum_x;
-	PRECISION point_sum_y;
+	double max_err = numeric_limits<double>::min();
+	double point_sum_x;
+	double point_sum_y;
 	int sum_of_lengths;
 	for (int i = 0; i < NUM_CLUSTERS; ++i)
 	{
@@ -171,27 +166,27 @@ void updateCenters(KMeansData &data)
 
 		point_sum_x /= sum_of_lengths;
 		point_sum_y /= sum_of_lengths;
-		PRECISION point_sum_square_norm = (point_sum_x * point_sum_x) + (point_sum_y * point_sum_y);
 
-		PRECISION dist = distanceCPU(data.centroids_p_x[i], data.centroids_p_y[i], point_sum_x, point_sum_y);
+		PRECISION dist = distance(data.centroids_p_x[i], data.centroids_p_y[i], point_sum_x, point_sum_y);
 		data.centroids_p_x[i] = point_sum_x;
 		data.centroids_p_y[i] = point_sum_y;
 
-		PRECISION variance = dist / point_sum_square_norm;
-		if (variance > max_var)
+		//PRECISION point_sum_square_norm = (point_sum_x * point_sum_x) + (point_sum_y * point_sum_y);
+		PRECISION error = sqrt(dist); // point_sum_square_norm;
+		if (error > max_err)
 		{
-			max_var = variance;
+			max_err = error;
 		}
 
 #ifdef PRINT_CENTERS
-		printf("centroid %d (%f:%f) with %d elements\n", i, data.centroids_p_x[i], data.centroids_p_y[i], sum_of_lengths);
+		printf("centroid %d (%f:%f) with %d elements (error: %f)\n", i, data.centroids_p_x[i], data.centroids_p_y[i], sum_of_lengths, error);
 #endif
 	}
 
 #ifdef PRINT_CENTERS
 	printf("==================================================\n");
 #endif
-	CONVERGED = (max_var < STOPPING_VARIANCE);
+	CONVERGED = (max_err < STOPPING_ERROR);
 }
 
 void performRounds(dim3 grid, dim3 block, KMeansData &data, int partitionSize)
@@ -317,10 +312,12 @@ int main(int argc, char** argv)
 #endif // PREALLOC_OPTIMIZE
 
 	cudaError_t cerr;
+	clock_t ds_tic = clock();
 	cerr = cudaMemcpy(data.d_points_p_x, data.points_p_x, DATASET_SIZE * sizeof(PRECISION), cudaMemcpyHostToDevice);
 	assert(cerr == cudaSuccess);
 	cerr = cudaMemcpy(data.d_points_p_y, data.points_p_y, DATASET_SIZE * sizeof(PRECISION), cudaMemcpyHostToDevice);
 	assert(cerr == cudaSuccess);
+	clock_t ds_toc = clock();
 
 	for (int rep = 0; rep < 30; rep++)
 	{
@@ -332,14 +329,13 @@ int main(int argc, char** argv)
 
 		CONVERGED = false;
 		clock_t tic = clock();
-		clock_t intermediate_clock = clock();
 		performRounds(grid, block, data, partitionSize);
 		clock_t toc = clock();
 
 #ifdef PRINT_CENTERS
-		printf("total time: %f (only algorithmic: %f)\n", (double)(toc - tic) / CLOCKS_PER_SEC, (double)(toc - intermediate_clock) / CLOCKS_PER_SEC);
+		printf("execution time: %f (dataset load: %f)\n", (double)(toc - tic) / CLOCKS_PER_SEC, (double)(ds_toc - ds_tic) / CLOCKS_PER_SEC);
 #else
-		printf("%f\n", (double)(toc - intermediate_clock) / CLOCKS_PER_SEC);
+		printf("%f\n", (double)(toc - tic) / CLOCKS_PER_SEC);
 #endif
 	}
 
