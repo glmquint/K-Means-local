@@ -375,3 +375,4 @@ launch-vtune.sh
 CSV_Preprocessor
 /results
 /results-old
+/K-Means-GPU/Intel® VTune™ Profiler Results/K-Means-GPU/K-Means-GPU.vtuneproj
