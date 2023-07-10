@@ -18,12 +18,12 @@
 
 #define PRINT_CENTERS_OFF
 #define PREALLOC_OPTIMIZE
+#define STOPPING_ERROR 0.05
 
 using namespace std;
 clock_t tic, toc;
 
 int THREADS = 1;
-double STOPPING_VARIANCE = 0.05;
 bool CONVERGED = false;
 int POINT_DIMENSION = 2;
 int NUM_CLUSTERS = 2;
@@ -184,7 +184,7 @@ int num_clusters, int partition_size, int num_threads
 
 void updateCenters()
 {
-	double max_var = numeric_limits<double>::min();
+	double max_err = numeric_limits<double>::min();
 	for (int i = 0; i < NUM_CLUSTERS; ++i)
 	{
 		Point point_sum = {};
@@ -205,11 +205,11 @@ void updateCenters()
 			sum_of_lengths += centroids[i].partition_lengths[j];
 		}
 
-		double point_sum_square_norm = 0;
+		//double point_sum_square_norm = 0;
 		for (int j = 0; j < POINT_DIMENSION; ++j)
 		{
 			point_sum.coords[j] /= sum_of_lengths; // new centroid
-			point_sum_square_norm += (point_sum.coords[j] * point_sum.coords[j]);
+			//point_sum_square_norm += (point_sum.coords[j] * point_sum.coords[j]);
 		}
 		double dist = distanceCPU(centroids[i].p, point_sum);
 		for (int j = 0; j < POINT_DIMENSION; ++j)
@@ -217,19 +217,19 @@ void updateCenters()
 			centroids[i].p.coords[j] = point_sum.coords[j];
 		}
 
-		double variance = dist / point_sum_square_norm;
-		if (variance > max_var)
+		double error = sqrt(dist); // point_sum_square_norm;
+		if (error > max_err)
 		{
-			max_var = variance;
+			max_err = error;
 		}
 #ifdef PRINT_CENTERS
-		printf("centroid %d (%f:%f) with %d elements\n", i, centroids[i].p.coords[0], centroids[i].p.coords[1], sum_of_lengths);
+		printf("centroid %d (%f:%f) with %d elements (error: %f)\n", i, centroids[i].p.coords[0], centroids[i].p.coords[1], sum_of_lengths, error);
 #endif
 	}
 #ifdef PRINT_CENTERS
 	printf("==================================================\n");
 #endif
-	CONVERGED = (max_var < STOPPING_VARIANCE);
+	CONVERGED = (max_err < STOPPING_ERROR);
 	// CONVERGED = true;
 }
 
@@ -387,7 +387,9 @@ int main(int argc, char **argv)
 	// must copy to device at each repetition
 	// do it once for every repetition
 	cudaError_t cerr;
+	clock_t ds_tic = clock();
 	cerr = cudaMemcpy(d_points, points, DATASET_SIZE * sizeof(ClassedPoint), cudaMemcpyHostToDevice);
+	clock_t ds_toc = clock();
 	assert(cerr == cudaSuccess);
 	for (int rep = 0; rep < 30; rep++)
 	{
