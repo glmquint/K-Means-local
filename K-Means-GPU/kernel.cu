@@ -117,69 +117,71 @@ int num_clusters, int partition_size, int num_threads
 	double min_d;
 	Point *sum;
 	int *points_per_centroid;
+	int index = threadIdx.x + blockIdx.x * blockDim.x;
+	if (index < num_threads) {
 
 #ifdef PREALLOC_OPTIMIZE
-	sum = &d_sum[(blockDim.x * blockIdx.x + threadIdx.x)*num_clusters];
-	points_per_centroid = &d_points_per_centroid[(blockDim.x * blockIdx.x + threadIdx.x)*num_clusters];
+		sum = &d_sum[(blockDim.x * blockIdx.x + threadIdx.x) * num_clusters];
+		points_per_centroid = &d_points_per_centroid[(blockDim.x * blockIdx.x + threadIdx.x) * num_clusters];
 #else
-	sum = new Point[num_clusters];
-	points_per_centroid = new int[num_clusters];
+		sum = new Point[num_clusters];
+		points_per_centroid = new int[num_clusters];
 #endif // PREALLOC_OPTIMIZE
 
-	for (int j = 0; j < num_clusters; ++j)
-	{
-		for (int k = 0; k < 2; ++k)
+		for (int j = 0; j < num_clusters; ++j)
 		{
-			sum[j].coords[k] = 0;
+			for (int k = 0; k < 2; ++k)
+			{
+				sum[j].coords[k] = 0;
+			}
+			points_per_centroid[j] = 0;
 		}
-		points_per_centroid[j] = 0;
-	}
 
-	int index = threadIdx.x + blockIdx.x * blockDim.x;
-	for (int elem = 0; elem < partition_size; ++elem)
-	{
-		int partition_elem = partition_size * index + elem;
-		if (partition_elem < dataset_size)
+		for (int elem = 0; elem < partition_size; ++elem)
 		{
-			min_d = 1.7976931348623157e+308; // +inf
-			best_k = -1;
-			for (int i = 0; i < num_clusters; ++i)
+			int partition_elem = partition_size * index + elem;
+			if (partition_elem < dataset_size)
 			{
-				dist = distance(d_point[partition_elem].p, d_centr[i]);
-				/*
-				if (dist < min_d)
+				min_d = 1.7976931348623157e+308; // +inf
+				best_k = -1;
+				for (int i = 0; i < num_clusters; ++i)
 				{
-					min_d = dist;
-					best_k = i;
+					dist = distance(d_point[partition_elem].p, d_centr[i]);
+					if (dist < min_d)
+					{
+						min_d = dist;
+						best_k = i;
+					}
+					/*
+					best_k = i * (dist < min_d) + best_k * (dist >= min_d);
+					min_d = dist * (dist < min_d) + min_d * (dist >= min_d);
+					*/
 				}
-				*/
-				best_k = i * (dist < min_d) + best_k * (dist >= min_d);
-				min_d = dist * (dist < min_d) + min_d * (dist >= min_d);
+				d_point[partition_elem].k = best_k;
+				for (int i = 0; i < 2; ++i)
+				{
+					sum[best_k].coords[i] += d_point[partition_elem].p.coords[i];
+				}
+				points_per_centroid[best_k]++;
 			}
-			d_point[partition_elem].k = best_k;
-			for (int i = 0; i < 2; ++i)
-			{
-				sum[best_k].coords[i] += d_point[partition_elem].p.coords[i];
-			}
-			points_per_centroid[best_k]++;
 		}
-	}
-	//printf("%d) %f\n", index, sum[0].coords[0]);
-	for (int i = 0; i < num_clusters; ++i)
-	{
-		for (int j = 0; j < 2; ++j)
+		//printf("%d) %f\n", index, sum[0].coords[0]);
+		for (int i = 0; i < num_clusters; ++i)
 		{
-			d_centroids_sums[i * num_threads + index].coords[j] = sum[i].coords[j];
+			for (int j = 0; j < 2; ++j)
+			{
+				d_centroids_sums[i * num_threads + index].coords[j] = sum[i].coords[j];
+			}
+			d_centroids_plengths[i * num_threads + index] = points_per_centroid[i];
 		}
-		d_centroids_plengths[i * num_threads + index] = points_per_centroid[i];
-	}
-	//printf("%d} %f\n", index, d_centroids_sums[0 + index].coords[0]);
-	// ok????
+		//printf("%d} %f\n", index, d_centroids_sums[0 + index].coords[0]);
+		// ok????
 #ifndef PREALLOC_OPTIMIZE
-	delete[] sum;
-	delete[] points_per_centroid;
+		delete[] sum;
+		delete[] points_per_centroid;
 #endif // !PREALLOC_OPTIMIZE
 
+	}
 }
 
 void updateCenters()
