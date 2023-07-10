@@ -17,13 +17,13 @@
 #include <cassert>
 
 #define PRINT_CENTERS_OFF
-#define PREALLOC_OPTIMIZE
-#define STOPPING_ERROR 0.05
+#define PREALLOC_OPTIMIZE_OFF
 
 using namespace std;
 clock_t tic, toc;
 
 int THREADS = 1;
+float STOPPING_VARIANCE = 0.05;
 bool CONVERGED = false;
 int POINT_DIMENSION = 2;
 int NUM_CLUSTERS = 2;
@@ -32,7 +32,7 @@ int THREADS_PER_BLOCK;
 
 struct Point_s
 {
-	double coords[2];
+	float coords[2];
 };
 typedef struct Point_s Point;
 
@@ -65,10 +65,10 @@ int* d_points_per_centroid;
 // distance squared between 2 points
 // root square is not necessarry for distance comparison
 // and is removeed as optimization
-__device__ double distance(Point &a, Point &b)
+__device__ float distance(Point &a, Point &b)
 {
-	double sum_of_squares = 0;
-	double diff_coord;
+	float sum_of_squares = 0;
+	float diff_coord;
 	for (int i = 0; i < 2; ++i)
 	{
 		diff_coord = a.coords[i] - b.coords[i];
@@ -77,10 +77,10 @@ __device__ double distance(Point &a, Point &b)
 	return sum_of_squares;
 }
 
-double distanceCPU(Point &a, Point &b)
+float distanceCPU(Point &a, Point &b)
 {
-	double sum_of_squares = 0;
-	double diff_coord;
+	float sum_of_squares = 0;
+	float diff_coord;
 	for (int i = 0; i < 2; ++i)
 	{
 		diff_coord = a.coords[i] - b.coords[i];
@@ -90,7 +90,7 @@ double distanceCPU(Point &a, Point &b)
 }
 
 #if __CUDA_ARCH__ < 600
-__device__ double atomicAddDouble(double *address, double val)
+__device__ float atomicAddDouble(float *address, float val)
 {
 	unsigned long long int *address_as_ull = (unsigned long long int *)address;
 	unsigned long long int old = *address_as_ull, assumed;
@@ -112,9 +112,9 @@ int num_clusters, int partition_size, int num_threads
 #endif // PREALLOC_OPTIMIZE
 )
 {
-	double dist = 0;
+	float dist = 0;
 	int best_k;
-	double min_d;
+	float min_d;
 	Point *sum;
 	int *points_per_centroid;
 
@@ -141,7 +141,7 @@ int num_clusters, int partition_size, int num_threads
 		int partition_elem = partition_size * index + elem;
 		if (partition_elem < dataset_size)
 		{
-			min_d = 1.7976931348623157e+308; // +inf
+			min_d = 3.4e+38; // +inf
 			best_k = -1;
 			for (int i = 0; i < num_clusters; ++i)
 			{
@@ -184,11 +184,11 @@ int num_clusters, int partition_size, int num_threads
 
 void updateCenters()
 {
-	double max_err = numeric_limits<double>::min();
+	float max_var = numeric_limits<float>::min();
 	for (int i = 0; i < NUM_CLUSTERS; ++i)
 	{
 		Point point_sum = {};
-		// point_sum.coords = new double[POINT_DIMENSION];
+		// point_sum.coords = new float[POINT_DIMENSION];
 		for (int k = 0; k < POINT_DIMENSION; ++k)
 		{
 			point_sum.coords[k] = 0;
@@ -205,31 +205,31 @@ void updateCenters()
 			sum_of_lengths += centroids[i].partition_lengths[j];
 		}
 
-		//double point_sum_square_norm = 0;
+		float point_sum_square_norm = 0;
 		for (int j = 0; j < POINT_DIMENSION; ++j)
 		{
 			point_sum.coords[j] /= sum_of_lengths; // new centroid
-			//point_sum_square_norm += (point_sum.coords[j] * point_sum.coords[j]);
+			point_sum_square_norm += (point_sum.coords[j] * point_sum.coords[j]);
 		}
-		double dist = distanceCPU(centroids[i].p, point_sum);
+		float dist = distanceCPU(centroids[i].p, point_sum);
 		for (int j = 0; j < POINT_DIMENSION; ++j)
 		{
 			centroids[i].p.coords[j] = point_sum.coords[j];
 		}
 
-		double error = sqrt(dist); // point_sum_square_norm;
-		if (error > max_err)
+		float variance = dist / point_sum_square_norm;
+		if (variance > max_var)
 		{
-			max_err = error;
+			max_var = variance;
 		}
 #ifdef PRINT_CENTERS
-		printf("centroid %d (%f:%f) with %d elements (error: %f)\n", i, centroids[i].p.coords[0], centroids[i].p.coords[1], sum_of_lengths, error);
+		printf("centroid %d (%f:%f) with %d elements\n", i, centroids[i].p.coords[0], centroids[i].p.coords[1], sum_of_lengths);
 #endif
 	}
 #ifdef PRINT_CENTERS
 	printf("==================================================\n");
 #endif
-	CONVERGED = (max_err < STOPPING_ERROR);
+	CONVERGED = (max_var < STOPPING_VARIANCE);
 	// CONVERGED = true;
 }
 
@@ -304,10 +304,10 @@ void generateRandomCentroids()
 	for (int i = 0; i < NUM_CLUSTERS; ++i){
 		//Centroid* c = new Centroid;
 		//c->p = *new Point;
-		//c->p.coords = new double[POINT_DIMENSION];
+		//c->p.coords = new float[POINT_DIMENSION];
 		centroids[i].sum = new Point[THREADS];
 		centroids[i].partition_lengths = new int[THREADS];
-		//c->sum[j].coords = new double[POINT_DIMENSION];
+		//c->sum[j].coords = new float[POINT_DIMENSION];
 		for (int j = 0; j < THREADS; j++){
 			for (int k = 0; k < POINT_DIMENSION; ++k){
 				centroids[i].sum[j].coords[k] = 0;
@@ -320,6 +320,7 @@ void generateRandomCentroids()
 void deserializePoints(char *intput_file)
 {
 	ifstream infile;
+	double tmp;
 	infile.open(intput_file, ios::in | ios::binary);
 	if (infile.fail())
 	{
@@ -331,11 +332,12 @@ void deserializePoints(char *intput_file)
 	infile.read((char *)(&POINT_DIMENSION), sizeof(POINT_DIMENSION));
 	for (int i = 0; i < DATASET_SIZE; i++)
 	{
-		// points[i].p.coords = new double[POINT_DIMENSION];
+		// points[i].p.coords = new float[POINT_DIMENSION];
 		points[i].k = -1;
 		for (int j = 0; j < POINT_DIMENSION; ++j)
 		{
-			infile.read((char *)(&points[i].p.coords[j]), sizeof(double));
+			infile.read((char *)(&tmp), sizeof(double));
+			points[i].p.coords[j] = (float) tmp;
 		}
 	}
 	infile.close();
@@ -387,11 +389,9 @@ int main(int argc, char **argv)
 	// must copy to device at each repetition
 	// do it once for every repetition
 	cudaError_t cerr;
-	clock_t ds_tic = clock();
 	cerr = cudaMemcpy(d_points, points, DATASET_SIZE * sizeof(ClassedPoint), cudaMemcpyHostToDevice);
-	clock_t ds_toc = clock();
 	assert(cerr == cudaSuccess);
-	for (int rep = 0; rep < 30; rep++)
+	for (int rep = 0; rep < 3; rep++)
 	{
 		setupRandomCentroids();
 		for (int i = 0; i < DATASET_SIZE; i++)
@@ -408,7 +408,7 @@ int main(int argc, char **argv)
 #ifdef PRINT_CENTERS
 		printf("total time: %f (only algorithmic: %f)\n", (double)(toc - tic) / CLOCKS_PER_SEC, (double)(toc - intermidiate_clock) / CLOCKS_PER_SEC);
 #else
-		printf("Ok: %f\n", (double)(toc - intermidiate_clock) / CLOCKS_PER_SEC);
+		printf("%f\n", (double)(toc - intermidiate_clock) / CLOCKS_PER_SEC);
 #endif
 		/*
 		for (int i = 0; i < NUM_CLUSTERS; ++i) {
