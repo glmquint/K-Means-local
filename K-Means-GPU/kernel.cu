@@ -16,8 +16,8 @@
 #include <time.h>
 #include <cassert>
 
-#define PRINT_CENTERS_OFF
-#define PREALLOC_OPTIMIZE
+#define PRINT_CENTERS
+#define PREALLOC_OPTIMIZE_OFF
 #define STOPPING_ERROR 0.05
 
 using namespace std;
