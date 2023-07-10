@@ -406,7 +406,7 @@ int main(int argc, char **argv)
 		performRounds(grid, block, partition_size);
 		clock_t toc = clock();
 #ifdef PRINT_CENTERS
-		printf("total time: %f (only algorithmic: %f)\n", (double)(toc - tic) / CLOCKS_PER_SEC, (double)(toc - intermidiate_clock) / CLOCKS_PER_SEC);
+		printf("execution time: %f (dataset load %f)\n", (double)(toc - tic) / CLOCKS_PER_SEC, (double)(ds_toc - ds_tic) / CLOCKS_PER_SEC);
 #else
 		printf("Ok: %f\n", (double)(toc - intermidiate_clock) / CLOCKS_PER_SEC);
 #endif
