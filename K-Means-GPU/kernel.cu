@@ -16,7 +16,7 @@
 #include <time.h>
 #include <cassert>
 
-#define PRINT_CENTERS
+#define PRINT_CENTERS_OFF
 #define PREALLOC_OPTIMIZE_OFF
 
 #define POINT_DIMENSION 2
