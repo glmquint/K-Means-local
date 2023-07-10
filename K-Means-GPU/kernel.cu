@@ -18,7 +18,7 @@
 
 #define PRINT_CENTERS
 #define PREALLOC_OPTIMIZE_OFF
-#define STOPPING_ERROR 0.05
+#define STOPPING_ERROR 1e-2
 
 using namespace std;
 clock_t tic, toc;
@@ -273,7 +273,9 @@ void performRounds(dim3 grid, dim3 block, int partition_size)
 		round++;
 		// printf("%f\n", round, elapsed);
 	}
-	// printf("took %d rounds\n", round);
+#ifdef PRINT_CENTERS
+	 printf("took %d rounds\n", round);
+#endif
 }
 
 void setupRandomCentroids()
