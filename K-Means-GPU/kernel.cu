@@ -338,7 +338,7 @@ int main(int argc, char** argv)
 	assert(cerr == cudaSuccess);
 	clock_t ds_toc = clock();
 
-	for (int rep = 0; rep < 2; rep++)
+	for (int rep = 0; rep < 30; rep++)
 	{
 		setupRandomCentroids(data);
 		for (int i = 0; i < DATASET_SIZE; i++)
