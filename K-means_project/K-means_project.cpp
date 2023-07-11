@@ -15,7 +15,7 @@
 using namespace std;
 
 int THREADS = 1;
-double STOPPING_VARIANCE = 0.05;
+#define STOPPING_ERROR 1e-2
 bool CONVERGED = false;
 int POINT_DIMENSION = 0;
 int NUM_CLUSTERS = 2;
@@ -152,7 +152,7 @@ void buildPartitions(ClassedPoint **first_points, int *partition_lengths)
 // main thread must merge all results coming from every thread
 void updateCenters()
 {
-	double max_var = numeric_limits<double>::min();
+	double max_err = numeric_limits<double>::min();
 	for (int i = 0; i < NUM_CLUSTERS; ++i)
 	{
 		Point point_sum = {};
@@ -171,11 +171,9 @@ void updateCenters()
 			sum_of_lengths += centroids[i].partition_lengths[j];
 		}
 
-		double point_sum_square_norm = 0;
 		for (int j = 0; j < POINT_DIMENSION; ++j)
 		{
 			point_sum.coords[j] = point_sum.coords[j] / sum_of_lengths; // new centroid
-			point_sum_square_norm += (point_sum.coords[j] * point_sum.coords[j]);
 		}
 		double dist = distance(centroids[i].p, point_sum);
 		for (int j = 0; j < POINT_DIMENSION; ++j)
@@ -183,13 +181,13 @@ void updateCenters()
 			centroids[i].p.coords[j] = point_sum.coords[j];
 		}
 
-		double variance = dist / point_sum_square_norm;
-		if (variance > max_var)
+		double error = dist;
+		if (error > max_err)
 		{
-			max_var = variance;
+			max_err = error;
 		}
 	}
-	CONVERGED = (max_var < STOPPING_VARIANCE);
+	CONVERGED = (max_err < STOPPING_ERROR);
 }
 
 // delegates work between thrads after proper load distribution
