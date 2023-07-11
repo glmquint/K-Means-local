@@ -16,7 +16,7 @@
 #include <time.h>
 #include <cassert>
 
-#define PRINT_CENTERS_OFF
+#define PRINT_CENTERS
 #define PREALLOC_OPTIMIZE_OFF
 
 #define POINT_DIMENSION 2
@@ -82,9 +82,9 @@ __global__ void worker(KMeansData data, int datasetSize, int numClusters, int pa
 	PRECISION dist = 0;
 	int best_k;
 	PRECISION min_d;
-	PRECISION* sum_x;
-	PRECISION* sum_y;
-	int* points_per_centroid;
+	//PRECISION* sum_x;
+	//PRECISION* sum_y;
+	//int* points_per_centroid;
 	int index = threadIdx.x + blockIdx.x * blockDim.x;
 	if (index < numThreads) {
 
@@ -92,16 +92,16 @@ __global__ void worker(KMeansData data, int datasetSize, int numClusters, int pa
 		sum = &data.sum[(blockDim.x * blockIdx.x + threadIdx.x) * numClusters];
 		pointsPerCentroid = &data.pointsPerCentroid[(blockDim.x * blockIdx.x + threadIdx.x) * numClusters];
 #else
-		sum_x = new PRECISION[numClusters];
-		sum_y = new PRECISION[numClusters];
-		points_per_centroid = new int[numClusters];
+		//sum_x = new PRECISION[numClusters];
+		//sum_y = new PRECISION[numClusters];
+		//points_per_centroid = new int[numClusters];
 #endif // PREALLOC_OPTIMIZE
 
 		for (int j = 0; j < numClusters; ++j)
 		{
-			sum_x[j] = 0.0;
-			sum_y[j] = 0.0;
-			points_per_centroid[j] = 0;
+			data.d_centroids_sums_x[j * numThreads + index] = 0.0;
+			data.d_centroids_sums_y[j * numThreads + index] = 0.0;
+			data.d_centroids_partition_lengths[j * numThreads + index] = 0;
 		}
 
 		for (int elem = 0; elem < partitionSize; ++elem)
@@ -127,23 +127,23 @@ __global__ void worker(KMeansData data, int datasetSize, int numClusters, int pa
 					//min_d = dist * (dist < min_d) + min_d * (dist >= min_d);
 				}
 				data.d_points_k[partition_elem] = best_k;
-				sum_x[best_k] += p_x;
-				sum_y[best_k] += p_y;
-				points_per_centroid[best_k]++;
+				data.d_centroids_sums_x[best_k * numThreads + index] += p_x;
+				data.d_centroids_sums_y[best_k * numThreads + index] += p_y;
+				data.d_centroids_partition_lengths[best_k * numThreads + index]++;
 			}
 		}
 
-		for (int i = 0; i < numClusters; ++i)
-		{
-			data.d_centroids_sums_x[i * numThreads + index] = sum_x[i];
-			data.d_centroids_sums_y[i * numThreads + index] = sum_y[i];
-			data.d_centroids_partition_lengths[i * numThreads + index] = points_per_centroid[i];
-		}
+		//for (int i = 0; i < numClusters; ++i)
+		//{
+		//	data.d_centroids_sums_x[i * numThreads + index] = sum_x[i];
+		//	data.d_centroids_sums_y[i * numThreads + index] = sum_y[i];
+		//	data.d_centroids_partition_lengths[i * numThreads + index] = points_per_centroid[i];
+		//}
 
 #ifndef PREALLOC_OPTIMIZE
-		delete[] sum_x;
-		delete[] sum_y;
-		delete[] points_per_centroid;
+		//delete[] sum_x;
+		//delete[] sum_y;
+		//delete[] points_per_centroid;
 #endif // !PREALLOC_OPTIMIZE
 	}
 }
@@ -338,7 +338,7 @@ int main(int argc, char** argv)
 	assert(cerr == cudaSuccess);
 	clock_t ds_toc = clock();
 
-	for (int rep = 0; rep < 30; rep++)
+	for (int rep = 0; rep < 2; rep++)
 	{
 		setupRandomCentroids(data);
 		for (int i = 0; i < DATASET_SIZE; i++)
