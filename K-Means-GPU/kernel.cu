@@ -412,7 +412,7 @@ int main(int argc, char **argv)
 #ifdef PRINT_CENTERS
 		printf("execution time: %f (dataset load %f)\n", (double)(toc - tic) / CLOCKS_PER_SEC, (double)(ds_toc - ds_tic) / CLOCKS_PER_SEC);
 #else
-		printf("Ok: %f\n", (double)(toc - intermidiate_clock) / CLOCKS_PER_SEC);
+		printf("%f\n", (double)(toc - intermidiate_clock) / CLOCKS_PER_SEC);
 #endif
 		/*
 		for (int i = 0; i < NUM_CLUSTERS; ++i) {
