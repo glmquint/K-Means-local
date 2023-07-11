@@ -104,23 +104,13 @@ void worker(ClassedPoint* first_point, int partition_length, int thread_num)
 		for (int j = 0; j < NUM_CLUSTERS; ++j)
 		{													   // for each centroid
 			dist = distance(first_point[i].p, centroids[j].p); // distance between point_i and centroid_j
-			// print works with only 2 dimensions
-			// printf("\t\t(%f:%f) - (%f:%f) -> %f\n", first_point[i].p.coords[0], first_point[i].p.coords[1],
-			//		 centroids[j].p.coords[0], centroids[j].p.coords[1], dist);
-			// BOTTLENECK !!!!
 			if (dist < min_d)
 			{
 				best_k = j;
 				min_d = dist;
 			}
-			// best_k = j * (dist < min_d) + best_k * (dist >= min_d);
-			// min_d = dist * (dist < min_d) + min_d * (dist >= min_d);
 		}
 		first_point[i].k = best_k;
-		/*for (int j = 0; j < POINT_DIMENSION; ++j) {
-			centroids[first_point[i].k].sum[thread_num].coords[j] += first_point[i].p.coords[j];
-		}
-		centroids[first_point[i].k].partition_lengths[thread_num]++;*/
 	}
 	aggregatePoints(first_point, partition_length, thread_num);
 }
