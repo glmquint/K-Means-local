@@ -377,3 +377,5 @@ CSV_Preprocessor
 /results-old
 /K-Means-GPU/Intel® VTune™ Profiler Results/K-Means-GPU/K-Means-GPU.vtuneproj
 /K-Means-GPU/K-Means-GPU.vcxproj
+kernelGenius
+*.zip
