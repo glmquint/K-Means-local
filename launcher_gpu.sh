@@ -27,7 +27,7 @@ do
 	do
         th="${threads[$j]}"
 		echo ${dataset} ${th} 128
-		K-Means-GPU/x64/Release/K-Means-GPU.exe dataset/${dataset}.serialized 5 ${th} 128 > results-old/${i}-${dataset}-${th}.csv
+		K-Means-GPU/kernel dataset/${dataset}.serialized 5 ${th} 128 > results-old/${i}-${dataset}-${th}.csv
 	done
 done
 for i in $(ls results-old); do echo $i; cat results-old/$i | sed "s/\./,/g" > results/$i; done;
