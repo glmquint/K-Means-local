@@ -10,6 +10,8 @@
 #include <chrono>
 #include <math.h>
 
+#define PRINT_CENTERS_OFF
+
 using namespace std;
 
 int THREADS = 1;
@@ -304,12 +306,12 @@ int main(int argc, char **argv)
 		}
 
 		CONVERGED = false;
-		auto start = std::chrono::high_resolution_clock::now();
+		clock_t tic = clock();
 		performRounds(threads, first_points, partition_lengths);
-		auto end = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double> diff = end - start;
-		printf("%f\n", diff.count());
+		clock_t toc = clock();
+		printf("%f\n", (double)(toc - tic)/CLOCKS_PER_SEC);
 		
+#ifdef PRINT_CENTERS
 		for (int i = 0; i < NUM_CLUSTERS; i++) {
 			printf("Centro %d : ", i);
 			for (int j = 0; j < POINT_DIMENSION; j++) {
@@ -317,6 +319,7 @@ int main(int argc, char **argv)
 			}
 			printf("\n");
 		}
+#endif
 		
 	}
 	return 0;
