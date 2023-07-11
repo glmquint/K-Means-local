@@ -12,11 +12,13 @@
 #include <math.h>
 #include <time.h>
 
+#define PRINT_CENTERS_OFF
+
 using namespace std;
 clock_t tic, toc;
 
 int THREADS = 1;
-double STOPPING_VARIANCE = 0.05;
+#define STOPPING_ERROR 1e-2
 bool CONVERGED = false;
 int POINT_DIMENSION = 0;
 int NUM_CLUSTERS = 2;
@@ -136,45 +138,9 @@ void buildPartitions(ClassedPoint** first_points, int* partition_lengths)
 	}
 }
 
-void buildPartitionsEqual(ClassedPoint** first_points, int* partition_lengths)
-{
-	int points_per_thread = DATASET_SIZE / THREADS;
-	for (int i = 0; i < THREADS; ++i)
-	{
-		partition_lengths[i] = points_per_thread;
-		first_points[i] = &points[0];
-	}
-}
-
-void buildPartitionsByHands(ClassedPoint** first_points, int* partition_lengths)
-{
-	float val[] = { 0.135, 0.135, 0.13, 0.125, 0.125, 0.12, 0.115, 0.115 };
-	int acc = 0;
-	for (int i = 0; i < THREADS; ++i)
-	{
-		int points_per_thread = floor(DATASET_SIZE * val[i]);
-		partition_lengths[i] = points_per_thread;
-		first_points[i] = &points[acc];
-		acc += points_per_thread;
-	}
-}
-
-/*void buildPartitionsProportions(ClassedPoint** first_points, int* partitions_lengths) {
-	int max_diff = DATASET_SIZE * 0.3;
-	for (int i = 0; i < THREADS; ++i) {
-		int points_per_thread = DATASET_SIZE / THREADS;
-		points_per_thread += max_diff * (THREADS / 2 - i);
-
-	}
-}
-*/
-
-// TODO:
-// SET FIXED NUMBER OF ITERATIONS
-
 void updateCenters()
 {
-	double max_var = numeric_limits<double>::min();
+	double max_err = numeric_limits<double>::min();
 	for (int i = 0; i < NUM_CLUSTERS; ++i)
 	{
 		Point point_sum = {};
@@ -193,11 +159,9 @@ void updateCenters()
 			sum_of_lengths += centroids[i].partition_lengths[j];
 		}
 
-		double point_sum_square_norm = 0;
 		for (int j = 0; j < POINT_DIMENSION; ++j)
 		{
 			point_sum.coords[j] = point_sum.coords[j] / sum_of_lengths; // new centroid
-			point_sum_square_norm += (point_sum.coords[j] * point_sum.coords[j]);
 		}
 		double dist = distance(centroids[i].p, point_sum);
 		for (int j = 0; j < POINT_DIMENSION; ++j)
@@ -205,23 +169,19 @@ void updateCenters()
 			centroids[i].p.coords[j] = point_sum.coords[j];
 		}
 
-		double variance = dist / point_sum_square_norm;
-		if (variance > max_var)
+		double error = dist;
+		if (error > max_err)
 		{
-			max_var = variance;
+			max_err = error;
 		}
 		// printf("iter %d) centroid %d (%f:%f) with %d elements\n", iter, i, centroids[i].p.coords[0], centroids[i].p.coords[1], sum_of_lengths);
 	}
-	//CONVERGED = (max_var < STOPPING_VARIANCE);
+	CONVERGED = (max_err < STOPPING_ERROR);
 }
-
-vector<double> distance_calls;
 
 void performRounds(thread* threads, ClassedPoint** first_points, int* partition_lengths)
 {
-	tic = clock();
 	int round = 0;
-	double elapsed = 0;
 	while (!CONVERGED)
 	{
 		if (THREADS != 1)
@@ -241,14 +201,7 @@ void performRounds(thread* threads, ClassedPoint** first_points, int* partition_
 		}
 		updateCenters();
 		round++;
-		toc = clock();
-		elapsed = (double)(toc - tic) / CLOCKS_PER_SEC;
-		//printf("%f\n", round, elapsed);
-		CONVERGED = elapsed > 0.5;
 	}
-	double d_calls = (double)(round * DATASET_SIZE * 5) * 0.5 / elapsed;
-	distance_calls.push_back(d_calls);
-	printf("%f\n", d_calls);
 	// printf("took %d rounds\n", round);
 }
 
@@ -330,18 +283,12 @@ int main(int argc, char** argv)
 		}
 
 		CONVERGED = false;
-		//TODO: change with clock_t as per issue #6
+		clock_t tic = clock();
 		performRounds(threads, first_points, partition_lengths);
-		//printf("%f\n", (double) (toc-tic)/CLOCKS_PER_SEC);
-		/*
-		auto start = std::chrono::high_resolution_clock::now();
-		performRounds(threads, first_points, partition_lengths);
-		auto end = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double> diff = end - start;
-		printf("%f\n", diff.count());
-		*/
+		clock_t toc = clock();
+		printf("%f\n", (double) (toc-tic)/CLOCKS_PER_SEC);
 
-		/*
+#ifdef PRINT_CENTERS
 		for (int i = 0; i < NUM_CLUSTERS; i++) {
 			printf("Centro %d : ", i);
 			for (int j = 0; j < POINT_DIMENSION; j++) {
@@ -349,7 +296,7 @@ int main(int argc, char** argv)
 			}
 			printf("\n");
 		}
-		*/
+#endif
 
 	}
 	/*
