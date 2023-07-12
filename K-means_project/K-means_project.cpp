@@ -195,9 +195,9 @@ void performRounds(thread* threads, ClassedPoint** first_points, int* partition_
 	// printf("took %d rounds\n", round);
 }
 
-void generateRandomCentroids()
+void generateRandomCentroids(int seed)
 {
-	srand(69420);
+	srand(seed);
 	for (int i = 0; i < NUM_CLUSTERS; ++i)
 	{
 		int random_index = rand() % (DATASET_SIZE);
@@ -264,9 +264,9 @@ int main(int argc, char** argv)
 	deserializePoints(argv[1]);
 	buildPartitions(first_points, partition_lengths);
 	// buildPartitionsByHands(first_points, partition_lengths);
-	for (int rep = 0; rep < 30; rep++)
+	for (int rep = 0; rep < 10; rep++)
 	{
-		generateRandomCentroids();
+		generateRandomCentroids(rep);
 		for (int i = 0; i < DATASET_SIZE; i++)
 		{
 			points[i].k = -1;
