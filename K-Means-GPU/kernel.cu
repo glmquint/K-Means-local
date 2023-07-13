@@ -17,7 +17,6 @@
 #include <cassert>
 
 #define PRINT_CENTERS_OFF
-#define PREALLOC_OPTIMIZE_OFF
 
 #define POINT_DIMENSION 2
 #define PRECISION float
@@ -59,14 +58,6 @@ struct KMeansData_s
 	PRECISION *d_centroids_sums_y;
 	int *d_centroids_partition_lengths;
 
-	#ifdef PREALLOC_OPTIMIZE // TODO: check optimization
-	// Point
-	POINT_PRECISION  d_sum_x;
-	POINT_PRECISION  d_sum_y;
-
-	int* d_points_per_centroid;
-	#endif // PREALLOC_OPTIMIZE
-
 };
 typedef struct KMeansData_s KMeansData;
 
@@ -88,14 +79,9 @@ __global__ void worker(KMeansData data, int datasetSize, int numClusters, int pa
 	int index = threadIdx.x + blockIdx.x * blockDim.x;
 	if (index < numThreads) {
 
-#ifdef PREALLOC_OPTIMIZE
-		sum = &data.sum[(blockDim.x * blockIdx.x + threadIdx.x) * numClusters];
-		pointsPerCentroid = &data.pointsPerCentroid[(blockDim.x * blockIdx.x + threadIdx.x) * numClusters];
-#else
 		sum_x = new PRECISION[numClusters];
 		sum_y = new PRECISION[numClusters];
 		points_per_centroid = new int[numClusters];
-#endif // PREALLOC_OPTIMIZE
 
 		for (int j = 0; j < numClusters; ++j)
 		{
@@ -140,11 +126,9 @@ __global__ void worker(KMeansData data, int datasetSize, int numClusters, int pa
 			data.d_centroids_partition_lengths[i * numThreads + index] = points_per_centroid[i];
 		}
 
-#ifndef PREALLOC_OPTIMIZE
 		delete[] sum_x;
 		delete[] sum_y;
 		delete[] points_per_centroid;
-#endif // !PREALLOC_OPTIMIZE
 	}
 }
 
@@ -300,11 +284,6 @@ int main(int argc, char** argv)
 	data.centroids_sum_y = new PRECISION[THREADS * NUM_CLUSTERS];
 	data.centroids_partition_lengths = new int[THREADS * NUM_CLUSTERS];
 
-#ifdef PREALLOC_OPTIMIZE
-	data.sum = new double[NUM_CLUSTERS * THREADS * POINT_DIMENSION];
-	data.pointsPerCentroid = new int[NUM_CLUSTERS * THREADS];
-#endif // PREALLOC_OPTIMIZE
-
 	int numBlocks = THREADS / THREADS_PER_BLOCK;
 	if (THREADS % THREADS_PER_BLOCK)
 		numBlocks++;
@@ -325,10 +304,6 @@ int main(int argc, char** argv)
 	cudaMalloc((void**)&data.d_centroids_sums_y, THREADS * NUM_CLUSTERS * sizeof(PRECISION));
 	cudaMalloc((void**)&data.d_centroids_partition_lengths, THREADS * NUM_CLUSTERS * sizeof(int));
 
-#ifdef PREALLOC_OPTIMIZE
-	cudaMalloc((void**)&data.sum, NUM_CLUSTERS * THREADS * POINT_DIMENSION * sizeof(double));
-	cudaMalloc((void**)&data.pointsPerCentroid, NUM_CLUSTERS * THREADS * sizeof(int));
-#endif // PREALLOC_OPTIMIZE
 
 	cudaError_t cerr;
 	clock_t ds_tic = clock();
