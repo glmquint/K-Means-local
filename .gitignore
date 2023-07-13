@@ -379,3 +379,5 @@ CSV_Preprocessor
 /K-Means-GPU/K-Means-GPU.vcxproj
 kernelGenius
 *.zip
+/all-results.xlsx
+/ScreenshotsGpu.zip.crdownload
