@@ -77,6 +77,7 @@ __device__ double distance(Point &a, Point &b)
 	return sum_of_squares;
 }
 
+// we need a second version of the distance function for the host
 double distanceCPU(Point &a, Point &b)
 {
 	double sum_of_squares = 0;
@@ -89,22 +90,9 @@ double distanceCPU(Point &a, Point &b)
 	return sum_of_squares;
 }
 
-#if __CUDA_ARCH__ < 600
-__device__ double atomicAddDouble(double *address, double val)
-{
-	unsigned long long int *address_as_ull = (unsigned long long int *)address;
-	unsigned long long int old = *address_as_ull, assumed;
-	do
-	{
-		assumed = old;
-		old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val + __longlong_as_double(assumed)));
-
-		// Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN)
-	} while (assumed != old);
-	return __longlong_as_double(old);
-}
-#endif
-
+// the main kernel function to be executed by each thread on the GPU 
+// Each thread finds the closest centroid for each point and aggregates
+// the coordinates of every point associated to each centroid.
 __global__ void worker(ClassedPoint *d_point, Point *d_centr, Point* d_centroids_sums, int * d_centroids_plengths, int dataset_size, 
 int num_clusters, int partition_size, int num_threads
 #ifdef PREALLOC_OPTIMIZE
@@ -152,7 +140,7 @@ int num_clusters, int partition_size, int num_threads
 						min_d = dist;
 						best_k = i;
 					}
-					/*
+					/* branchless solution that is slower
 					best_k = i * (dist < min_d) + best_k * (dist >= min_d);
 					min_d = dist * (dist < min_d) + min_d * (dist >= min_d);
 					*/
@@ -175,7 +163,6 @@ int num_clusters, int partition_size, int num_threads
 			d_centroids_plengths[i * num_threads + index] = points_per_centroid[i];
 		}
 		//printf("%d} %f\n", index, d_centroids_sums[0 + index].coords[0]);
-		// ok????
 #ifndef PREALLOC_OPTIMIZE
 		delete[] sum;
 		delete[] points_per_centroid;
@@ -184,13 +171,13 @@ int num_clusters, int partition_size, int num_threads
 	}
 }
 
+// main thread must merge all results coming from every thread
 void updateCenters()
 {
 	double max_err = numeric_limits<double>::min();
 	for (int i = 0; i < NUM_CLUSTERS; ++i)
 	{
 		Point point_sum = {};
-		// point_sum.coords = new double[POINT_DIMENSION];
 		for (int k = 0; k < POINT_DIMENSION; ++k)
 		{
 			point_sum.coords[k] = 0;
@@ -203,15 +190,12 @@ void updateCenters()
 			{
 				point_sum.coords[k] += centroids[i].sum[j].coords[k];
 			}
-			// point_sum.coords[k] = centroids[i].sum.coords[k];
 			sum_of_lengths += centroids[i].partition_lengths[j];
 		}
 
-		//double point_sum_square_norm = 0;
 		for (int j = 0; j < POINT_DIMENSION; ++j)
 		{
 			point_sum.coords[j] /= sum_of_lengths; // new centroid
-			//point_sum_square_norm += (point_sum.coords[j] * point_sum.coords[j]);
 		}
 		double dist = distanceCPU(centroids[i].p, point_sum);
 		for (int j = 0; j < POINT_DIMENSION; ++j)
@@ -219,7 +203,7 @@ void updateCenters()
 			centroids[i].p.coords[j] = point_sum.coords[j];
 		}
 
-		double error = sqrt(dist); // point_sum_square_norm;
+		double error = sqrt(dist); 
 		if (error > max_err)
 		{
 			max_err = error;
@@ -235,6 +219,7 @@ void updateCenters()
 	// CONVERGED = true;
 }
 
+// delegates work between thrads after proper load distribution
 void performRounds(dim3 grid, dim3 block, int partition_size)
 {
 	int round = 0;
@@ -280,6 +265,7 @@ void performRounds(dim3 grid, dim3 block, int partition_size)
 #endif
 }
 
+// initial centroids are picked at random from the dataset
 void setupRandomCentroids()
 {
 
@@ -306,12 +292,8 @@ void generateRandomCentroids()
 {
 	centroids = new Centroid[NUM_CLUSTERS];
 	for (int i = 0; i < NUM_CLUSTERS; ++i){
-		//Centroid* c = new Centroid;
-		//c->p = *new Point;
-		//c->p.coords = new double[POINT_DIMENSION];
 		centroids[i].sum = new Point[THREADS];
 		centroids[i].partition_lengths = new int[THREADS];
-		//c->sum[j].coords = new double[POINT_DIMENSION];
 		for (int j = 0; j < THREADS; j++){
 			for (int k = 0; k < POINT_DIMENSION; ++k){
 				centroids[i].sum[j].coords[k] = 0;
@@ -321,6 +303,7 @@ void generateRandomCentroids()
 	}
 }
 
+// read dataset from a preprocessed serialized file format
 void deserializePoints(char *intput_file)
 {
 	ifstream infile;
@@ -335,7 +318,6 @@ void deserializePoints(char *intput_file)
 	infile.read((char *)(&POINT_DIMENSION), sizeof(POINT_DIMENSION));
 	for (int i = 0; i < DATASET_SIZE; i++)
 	{
-		// points[i].p.coords = new double[POINT_DIMENSION];
 		points[i].k = -1;
 		for (int j = 0; j < POINT_DIMENSION; ++j)
 		{
@@ -411,23 +393,6 @@ int main(int argc, char **argv)
 		clock_t toc = clock();
 #ifdef PRINT_CENTERS
 		printf("execution time: %f (dataset load %f)\n", (double)(toc - tic) / CLOCKS_PER_SEC, (double)(ds_toc - ds_tic) / CLOCKS_PER_SEC);
-#else
-		printf("%f\n", (double)(toc - intermidiate_clock) / CLOCKS_PER_SEC);
-#endif
-		/*
-		for (int i = 0; i < NUM_CLUSTERS; ++i) {
-			printf("(%f %f)\n", centroids[i].p.coords[0], centroids[i].p.coords[1]);
-		}
-		*/
-		/*
-		auto start = std::chrono::high_resolution_clock::now();
-		performRounds(threads, first_points, partition_lengths);
-		auto end = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double> diff = end - start;
-		printf("%f\n", diff.count());
-		*/
-
-#ifdef PRINT_CENTERS
 		printf("/------------begin centroids-------------\\\n");
 		for (int i = 0; i < NUM_CLUSTERS; i++)
 		{
@@ -439,6 +404,8 @@ int main(int argc, char **argv)
 			printf("\n");
 		}
 		printf("\\------------end centroids---------------/\n");
+#else
+		printf("%f\n", (double)(toc - intermidiate_clock) / CLOCKS_PER_SEC);
 #endif
 	}
 	cudaFree(d_points);
