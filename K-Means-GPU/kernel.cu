@@ -62,12 +62,10 @@ struct KMeansData_s
 typedef struct KMeansData_s KMeansData;
 
 #define distance(ax, ay, bx, by) (ax - bx) * (ax - bx) + (ay - by) * (ay - by)
-//
-//PRECISION distanceCPU(PRECISION ax, PRECISION ay, PRECISION bx, PRECISION by)
-//{
-//	return (ax - bx) * (ax - bx) + (ay - by) * (ay - by);
-//}
 
+// the main kernel function to be executed by each thread on the GPU 
+// Each thread finds the closest centroid for each point and aggregates
+// the coordinates of every point associated to each centroid.
 __global__ void worker(KMeansData data, int datasetSize, int numClusters, int partitionSize, int numThreads)
 {
 	PRECISION dist = 0;
@@ -109,6 +107,7 @@ __global__ void worker(KMeansData data, int datasetSize, int numClusters, int pa
 						min_d = dist;
 						best_k = i;
 					}
+					// branchless solution that is slower
 					//best_k = i * (dist < min_d) + best_k * (dist >= min_d);
 					//min_d = dist * (dist < min_d) + min_d * (dist >= min_d);
 				}
@@ -132,6 +131,7 @@ __global__ void worker(KMeansData data, int datasetSize, int numClusters, int pa
 	}
 }
 
+// main thread must merge all results coming from every thread
 void updateCenters(KMeansData &data)
 {
 	double max_err = numeric_limits<double>::min();
@@ -158,8 +158,7 @@ void updateCenters(KMeansData &data)
 		data.centroids_p_x[i] = point_sum_x;
 		data.centroids_p_y[i] = point_sum_y;
 
-		//PRECISION point_sum_square_norm = (point_sum_x * point_sum_x) + (point_sum_y * point_sum_y);
-		PRECISION error = sqrt(dist); // point_sum_square_norm;
+		PRECISION error = sqrt(dist); 
 		if (error > max_err)
 		{
 			max_err = error;
@@ -176,6 +175,7 @@ void updateCenters(KMeansData &data)
 	CONVERGED = (max_err < STOPPING_ERROR);
 }
 
+// delegates work between thrads after proper load distribution
 void performRounds(dim3 grid, dim3 block, KMeansData &data, int partitionSize)
 {
 	int round = 0;
@@ -214,6 +214,7 @@ void performRounds(dim3 grid, dim3 block, KMeansData &data, int partitionSize)
 #endif
 }
 
+// initial centroids are picked at random from the dataset
 void setupRandomCentroids(KMeansData &data)
 {
 	srand(69420);
@@ -235,6 +236,7 @@ void setupRandomCentroids(KMeansData &data)
 #endif
 }
 
+// read dataset from a preprocessed serialized file format
 void deserializePoints(char* inputFile, KMeansData &data)
 {
 	ifstream infile;
@@ -288,9 +290,6 @@ int main(int argc, char** argv)
 	if (THREADS % THREADS_PER_BLOCK)
 		numBlocks++;
 
-	//int partitionSize = DATASET_SIZE / THREADS;
-	//if (DATASET_SIZE % THREADS)
-	//	partitionSize++;
 	int partitionSize = (DATASET_SIZE % THREADS == 0) ? (DATASET_SIZE / THREADS) : (DATASET_SIZE / (THREADS - 1));
 	dim3 grid(numBlocks, 1, 1);
 	dim3 block(THREADS_PER_BLOCK, 1, 1);
