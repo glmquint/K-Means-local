@@ -119,6 +119,7 @@ void worker(ClassedPoint* first_point, int partition_length, int thread_num)
 	aggregatePoints(first_point, partition_length, thread_num);
 }
 
+// equal load distribution for each thread
 void buildPartitions(ClassedPoint** first_points, int* partition_lengths)
 {
 	int reminder = DATASET_SIZE % THREADS;
@@ -132,6 +133,7 @@ void buildPartitions(ClassedPoint** first_points, int* partition_lengths)
 	}
 }
 
+// main thread must merge all results coming from every thread
 void updateCenters()
 {
 	double max_err = numeric_limits<double>::min();
@@ -173,6 +175,7 @@ void updateCenters()
 	CONVERGED = (max_err < STOPPING_ERROR);
 }
 
+// delegates work between thrads after proper load distribution
 void performRounds(thread* threads, ClassedPoint** first_points, int* partition_lengths)
 {
 	int round = 0;
@@ -199,6 +202,7 @@ void performRounds(thread* threads, ClassedPoint** first_points, int* partition_
 	// printf("took %d rounds\n", round);
 }
 
+// initial centroids are picked at random from the dataset
 void generateRandomCentroids(int seed)
 {
 	srand(seed);
@@ -227,6 +231,7 @@ void generateRandomCentroids(int seed)
 	}
 }
 
+// read dataset from a preprocessed serialized file format
 void deserializePoints(char* intput_file)
 {
 	ifstream infile;
