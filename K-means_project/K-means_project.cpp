@@ -289,13 +289,5 @@ int main(int argc, char** argv)
 #endif
 
 	}
-	/*
-	double mean = 0;
-	for (int i = 0; i < distance_calls.size(); ++i) {
-		mean += distance_calls.at(i);
-	}
-	mean /= distance_calls.size();
-	//printf("%f", mean);
-	*/
 	return 0;
 }
