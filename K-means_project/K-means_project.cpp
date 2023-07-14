@@ -83,6 +83,10 @@ void aggregatePoints(ClassedPoint* first_point, int partition_length, int thread
 	}
 }
 
+// worker function for each spawned thread
+// first_point -> begin of dataset partition
+// partition_legth -> partition length
+// thread_num -> this thread id
 void worker(ClassedPoint* first_point, int partition_length, int thread_num)
 {
 	double min_d;
